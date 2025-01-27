@@ -6,6 +6,7 @@
       <div class="text-weight-bold">
         ZChat
       </div>
+      <q-btn dense flat icon="menu" @click="toggleDrawer" />
       <div class="cursor-pointer gt-md">File</div>
       <div class="cursor-pointer gt-md">Edit</div>
       <div class="cursor-pointer gt-md">View</div>
@@ -16,6 +17,17 @@
       <div>{{ currentTime }}</div>
     </q-bar>
     </q-header>
+    
+    <q-drawer v-model="leftDrawerOpen" side="left" :width="250" bordered>
+      <q-list>
+        <q-item-label class="text-h6">Chatrooms</q-item-label>
+        <!-- 遍历聊天室列表，生成按钮 -->
+        <q-item v-for="chatroom in chatrooms" :key="chatroom.id">
+          <q-btn  @click="switchChatRoom(chatroom.name)" :label="chatroom.name" />
+        </q-item>
+      </q-list>
+    </q-drawer>
+
     <div class="chat-container">
       <!-- 显示消息列表 -->
       <q-chat-message
@@ -59,6 +71,9 @@ export default {
       ws: null, // WebSocket对象
       isConnected: false, // 连接状态标志
       currentTime: '',
+      leftDrawerOpen: false,
+      current_chatroom: 'chat',
+      cahtrooms: [],
     };
   },
   mounted() {
@@ -105,13 +120,25 @@ export default {
     };
 
     this.fetchMessages();
+    this.fetchChatrooms();
 
     setInterval(this.updateTime, 1000);
 
   },
   methods: {
+    fetchChatrooms() {
+      fetch('http://localhost:3000/api/chatrooms')
+        .then(response => response.json())
+        .then(data => {
+          this.chatrooms = data.chatrooms; // 获取聊天室列表
+          console.log(this.chatrooms);
+        })
+        .catch(err => {
+          console.error("Error fetching chatrooms:", err);
+        });
+    },
     fetchMessages() {
-      fetch('http://localhost:3000/api/messages')
+      fetch(`http://localhost:3000/api/messages?chatroom=${this.current_chatroom}`)
         .then(response => response.json())
         .then(data => {
           this.messages = data.messages; // 获取历史消息并反转，显示最旧的消息
@@ -122,7 +149,7 @@ export default {
     },
     sendMessage() {
       if (this.isConnected && this.message && this.name) {
-        const msg = { name: this.name, message: this.message };
+        const msg = { chatroom: this.current_chatroom, name: this.name, message: this.message };
         this.ws.send(JSON.stringify(msg));
         this.message = ''; // 清空输入框
       } else {
@@ -136,11 +163,19 @@ export default {
     gotoLogin(){
       this.$router.push('/login');
     },
+    toggleDrawer() {
+      this.leftDrawerOpen = !this.leftDrawerOpen; // 切换侧边栏状态
+    },
+    switchChatRoom(chatroomName){
+      this.current_chatroom = chatroomName;
+      this.fetchMessages();
+    },
   }
 };
 </script>
 
 <style>
+
 .chat-input-container {
   display: flex;
   align-items: center; 

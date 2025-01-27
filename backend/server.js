@@ -5,11 +5,12 @@ const path = require('path');
 const jwt = require('jsonwebtoken');
 const bodyParser = require('body-parser');
 const bcrypt = require('bcryptjs');
+const fs = require('fs');
 
-// 聊天消息数据库
-const db = new sqlite3.Database('./chat.db');
-db.serialize(() => {
-  db.run("CREATE TABLE IF NOT EXISTS messages (id INTEGER PRIMARY KEY, name TEXT, message TEXT)");
+//聊天室管理数据库
+const chatroomsDb = new sqlite3.Database('./Chatrooms.db');
+chatroomsDb.serialize(() => {
+  chatroomsDb.run("CREATE TABLE IF NOT EXISTS chatrooms (id INTEGER PRIMARY KEY, name TEXT UNIQUE)");
 });
 
 //用户管理数据库
@@ -27,6 +28,16 @@ app.use(cors());
 app.use(bodyParser.json()); // 解析JSON请求
 
 const JWT_SECRET = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6Ind3dy5ranNvbi5jb20iLCJzdWIiOiJkZW1vIiwiaWF0IjoxNzM3OTczOTMyLCJuYmYiOjE3Mzc5NzM5MzIsImV4cCI6MTczODA2MDMzMn0.T7gBlg6XwSLWMx5vwXihH3B1q7B8SyJohhrTdXOtGBw';
+
+// 获取所有聊天室的名称
+app.get('/api/chatrooms', (req, res) => {
+  chatroomsDb.all("SELECT * FROM chatrooms", (err, rows) => {
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+    res.json({ chatrooms: rows });
+  });
+});
 
 //登录接口
 app.post('/login',(req, res) =>{
@@ -76,6 +87,20 @@ app.post('/register', (req, res) => {
 
 // 获取历史消息
 app.get('/api/messages', (req, res) => {
+  const chatroom = req.query.chatroom;
+  if (!chatroom) {
+    return res.status(400).json({ error: 'Chatroom name is required' });
+  }
+
+  const dbPath = path.join(__dirname, `./messages/${chatroom}.db`);
+
+  // 如果数据库文件不存在，返回错误
+  if (!fs.existsSync(dbPath)) {
+    return res.status(404).json({ error: 'Chatroom not found' });
+  }
+
+  const db = new sqlite3.Database(dbPath);
+
   db.all("SELECT * FROM messages", (err, rows) => {
     if (err) {
       res.status(500).json({ error: err.message });
@@ -95,7 +120,16 @@ const wss = new WebSocketServer({ noServer: true });
 wss.on('connection', (ws) => {
   console.log("WebSocket connection established");
   ws.on('message', (data) => {
-    const { name, message } = JSON.parse(data);
+    const { chatroom, name, message } = JSON.parse(data);
+
+    const dbPath = path.join(__dirname, `./messages/${chatroom}.db`);
+
+    console.log(dbPath);
+
+    const db = new sqlite3.Database(dbPath);
+
+    db.run("CREATE TABLE IF NOT EXISTS messages (id INTEGER PRIMARY KEY, name TEXT, message TEXT)");
+
     db.run("INSERT INTO messages (name, message) VALUES (?, ?)", [name, message], function (err) {
       if (err) {
         console.error(err);
