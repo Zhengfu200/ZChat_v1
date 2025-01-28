@@ -10,7 +10,7 @@ const fs = require('fs');
 //聊天室管理数据库
 const chatroomsDb = new sqlite3.Database('./Chatrooms.db');
 chatroomsDb.serialize(() => {
-  chatroomsDb.run("CREATE TABLE IF NOT EXISTS chatrooms (id INTEGER PRIMARY KEY, name TEXT UNIQUE)");
+  chatroomsDb.run("CREATE TABLE IF NOT EXISTS chatrooms (id INTEGER PRIMARY KEY, name TEXT UNIQUE, owner TEXT, db_path TEXT)");
 });
 
 //用户管理数据库
@@ -40,16 +40,16 @@ app.get('/api/chatrooms', (req, res) => {
 });
 
 //登录接口
-app.post('/login',(req, res) =>{
+app.post('/login', (req, res) => {
   const { username, password } = req.body;
 
-  user_db.get("SELECT * FROM users WHERE username = ?", [username],(err, row) =>{
+  user_db.get("SELECT * FROM users WHERE username = ?", [username], (err, row) => {
     if (err || !row) {
       return res.status(400).json({ error: 'Invalid username or password' });
     }
 
-    bcrypt.compare(password, row.password, (err, result) =>{
-      if(err || !result){
+    bcrypt.compare(password, row.password, (err, result) => {
+      if (err || !result) {
         return res.status(400).json({ error: 'Invalid username or password' });
       }
 
@@ -92,21 +92,29 @@ app.get('/api/messages', (req, res) => {
     return res.status(400).json({ error: 'Chatroom name is required' });
   }
 
-  const dbPath = path.join(__dirname, `./messages/${chatroom}.db`);
-
-  // 如果数据库文件不存在，返回错误
-  if (!fs.existsSync(dbPath)) {
-    return res.status(404).json({ error: 'Chatroom not found' });
-  }
-
-  const db = new sqlite3.Database(dbPath);
-
-  db.all("SELECT * FROM messages", (err, rows) => {
+  chatroomsDb.get("SELECT * FROM chatrooms WHERE name = ?", [chatroom], (err, row) => {
     if (err) {
-      res.status(500).json({ error: err.message });
-      return;
+      return res.status(500).json({ error: '查询聊天室信息失败' });
     }
-    res.json({ messages: rows });
+    if (!row) {
+      return res.status(404).json({ error: '找不到匹配的聊天室' });
+    }
+    const dbPath = row.db_path
+
+    // 如果数据库文件不存在，返回错误
+    if (!fs.existsSync(dbPath)) {
+      return res.status(404).json({ error: 'Chatroom not found' });
+    }
+
+    const messages_db = new sqlite3.Database(dbPath);
+
+    messages_db.all("SELECT * FROM messages", (err, rows) => {
+      if (err) {
+        res.status(500).json({ error: err.message });
+        return;
+      }
+      res.json({ messages: rows });
+    });
   });
 });
 
@@ -122,25 +130,38 @@ wss.on('connection', (ws) => {
   ws.on('message', (data) => {
     const { chatroom, name, message } = JSON.parse(data);
 
-    const dbPath = path.join(__dirname, `./messages/${chatroom}.db`);
-
-    console.log(dbPath);
-
-    const db = new sqlite3.Database(dbPath);
-
-    db.run("CREATE TABLE IF NOT EXISTS messages (id INTEGER PRIMARY KEY, name TEXT, message TEXT)");
-
-    db.run("INSERT INTO messages (name, message) VALUES (?, ?)", [name, message], function (err) {
+    chatroomsDb.get("SELECT * FROM chatrooms WHERE name = ?", [chatroom], (err, row) => {
       if (err) {
-        console.error(err);
-      } else {
-        // 广播消息
-        wss.clients.forEach((client) => {
-          if (client.readyState === ws.OPEN) {
-            client.send(JSON.stringify({ name, message }));
-          }
-        });
+        return res.status(500).json({ error: '查询聊天室信息失败' });
       }
+      if (!row) {
+        return res.status(404).json({ error: '找不到匹配的聊天室' });
+      }
+      const dbPath = row.db_path
+
+      // 如果数据库文件不存在，返回错误
+      if (!fs.existsSync(dbPath)) {
+        return res.status(404).json({ error: 'Chatroom not found' });
+      }
+
+      const messages_db = new sqlite3.Database(dbPath);
+
+      console.log(dbPath);
+
+      messages_db.run("CREATE TABLE IF NOT EXISTS messages (id INTEGER PRIMARY KEY, name TEXT, message TEXT)");
+
+      messages_db.run("INSERT INTO messages (name, message) VALUES (?, ?)", [name, message], function (err) {
+        if (err) {
+          console.error(err);
+        } else {
+          // 广播消息
+          wss.clients.forEach((client) => {
+            if (client.readyState === ws.OPEN) {
+              client.send(JSON.stringify({ name, message }));
+            }
+          });
+        }
+      });
     });
   });
 
@@ -148,6 +169,40 @@ wss.on('connection', (ws) => {
     console.log("WebSocket connection closed");
   });
 });
+
+// 修改聊天室信息
+app.post('/api/mod', (req, res) => {
+  const { chatroom_previous, owner_previous, chatroom_modified, owner_modified } = req.body;
+
+  user_db.get("SELECT * FROM users WHERE username = ?", [owner_modified], (err, row) => {
+    if (err) {
+      return res.status(500).json({ error: '用户数据库查询失败' });
+    }
+    if (!row) {
+      return res.status(404).json({ error: '指定用户不存在' });
+    }
+
+    chatroomsDb.get("SELECT * FROM chatrooms WHERE name = ? AND owner = ?", [chatroom_previous, owner_previous], (err, row) => {
+      if (err) {
+        return res.status(500).json({ error: '数据库查询错误' });
+      }
+      if (!row) {
+        return res.status(400).json({ error: '找不到匹配的聊天室' });
+      }
+
+      // 更新聊天室信息
+      chatroomsDb.run("UPDATE chatrooms SET name = ?, owner = ? WHERE name = ? AND owner = ?",
+        [chatroom_modified, owner_modified, chatroom_previous, owner_previous], (err) => {
+          if (err) {
+            return res.status(500).json({ error: '更新聊天室失败' });
+          }
+          res.json({ message: '聊天室信息修改成功' });
+        });
+    });
+  });
+});
+
+
 
 // HTTP 升级为 WebSocket 连接
 server.on('upgrade', (req, socket, head) => {

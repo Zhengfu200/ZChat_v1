@@ -1,5 +1,6 @@
 import Login from 'pages/LoginPage.vue';
 import RegisterPage from 'src/pages/RegisterPage.vue';
+import ServerModerator from 'pages/ServerModerator.vue';
 
 const routes = [
   {
@@ -16,7 +17,11 @@ const routes = [
     path: '/register',
     component: RegisterPage
   },
-
+  {
+    path: '/server-moderator',
+    name: 'server-moderator',
+    component: ServerModerator
+  },
   // Always leave this as last one,
   // but you can also remove it
   {
