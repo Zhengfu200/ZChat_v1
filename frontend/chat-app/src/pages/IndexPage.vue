@@ -40,9 +40,8 @@
       <q-list separator bordened>
         <q-item-label class="text-h6" style="padding: 10px;">Chatrooms</q-item-label>
         <q-separator />
-        <!-- 遍历聊天室列表，生成按钮 -->
         <q-item v-for="chatroom in chatrooms" :key="chatroom.id" clickable @click="switchChatRoom(chatroom.name)">
-          <q-item-section>
+          <q-item-section :class="chatroom.name === current_chatroom ? 'text-primary' : ''">
             {{ chatroom.name }}
           </q-item-section>
         </q-item>
@@ -50,14 +49,13 @@
     </q-drawer>
 
     <div class="chat-container">
-      <!-- 显示消息列表 -->
       <q-chat-message v-for="msg in messages" :key="msg.id" :sent="msg.name === name" :text="[msg.message]"
-        :name="msg.name" avatar="https://img.icons8.com/?size=100&id=YXG86oegZMMh&format=png&color=000000" />
+        :name="msg.name"
+        :avatar="msg.avatar_url ? msg.avatar_url : 'https://img.icons8.com/?size=100&id=YXG86oegZMMh&format=png&color=000000'" />
     </div>
 
     <div class="chat-input-container">
       <q-input v-model="message" label="Message" class="bottom-input" @keyup.enter="sendMessage" />
-      <!-- 发送消息按钮 -->
       <q-btn round icon="navigation" class="send-btn" @click="sendMessage" />
     </div>
   </q-page>
@@ -78,9 +76,10 @@ export default {
       currentTime: '',
       leftDrawerOpen: false,
       current_chatroom: '',
-      cahtrooms: [],
+      chatrooms: [],
       showDetails: false,
       current_chatroom_owner: '',
+      avatar_url: '',
     };
   },
   mounted() {
@@ -95,6 +94,8 @@ export default {
       const decodedToken = jwtDecode(token);
       console.log(decodedToken);  // 输出解码后的 token
       this.name = decodedToken.username;
+      this.avatar_url = decodedToken.user_avatar;
+      console.log(this.avatar_url);
     } catch (err) {
       console.error("Invalid token or decoding failed:", err);
       this.$router.push('/login');  // 如果解码失败，跳转到登录页面
@@ -137,13 +138,9 @@ export default {
         .then(response => response.json())
         .then(data => {
           this.chatrooms = data.chatrooms; // 获取聊天室列表
-          console.log(this.chatrooms);
-
           if (this.chatrooms.length > 0) {
             this.current_chatroom = this.chatrooms[0].name;
             this.current_chatroom_owner = this.chatrooms[0].owner;
-            console.log(this.current_chatroom);
-
             this.fetchMessages();
           }
         })
@@ -168,7 +165,8 @@ export default {
     },
     sendMessage() {
       if (this.isConnected && this.message && this.name) {
-        const msg = { chatroom: this.current_chatroom, name: this.name, message: this.message };
+        const msg = { chatroom: this.current_chatroom, name: this.name, avatar: this.avatar_url, message: this.message };
+        console.log(msg.avatar);
         this.ws.send(JSON.stringify(msg));
         this.message = ''; // 清空输入框
       } else {
@@ -193,23 +191,55 @@ export default {
       this.showDetails = !this.showDetails; // 切换展开区域的显示状态
     },
     goToServerModerator() {
-      if (this.name === this.current_chatroom_owner) {
-        this.$router.push({
-          name: 'server-moderator',
-          query: {
-            chatroom: this.current_chatroom,
-            owner: this.current_chatroom_owner
-          }
-        });
-      } else {
-        // 弹出提示
+      const token = localStorage.getItem('token');
+      if (!token) {
         this.$q.notify({
           color: 'negative',
-          message: 'You are not the owner of this chatroom!',
+          message: 'no token found, please try login again',
           icon: 'report_problem',
           position: 'top'
         });
+        return;
       }
+      fetch('http://localhost:3000/api/verifyChatroomOwner', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          chatroom: this.current_chatroom
+        })
+      })
+        .then(response => response.json())
+        .then(data => {
+          if (data.isOwner) {
+            // 如果是 owner，跳转到 moderator 页面
+            this.$router.push({
+              name: 'server-moderator',
+              query: {
+                chatroom: this.current_chatroom,
+                owner: this.current_chatroom_owner
+              }
+            });
+          } else {
+            // 弹出提示
+            this.$q.notify({
+              color: 'negative',
+              message: 'You are not the owner of this chatroom!',
+              icon: 'report_problem',
+              position: 'top'
+            });
+          }
+        })
+        .catch(error => {
+          this.$q.notify({
+            color: 'negative',
+            message: 'An error occurred:', error,
+            icon: 'error',
+            position: 'top'
+          });
+        });
     },
   }
 };

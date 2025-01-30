@@ -16,7 +16,7 @@ chatroomsDb.serialize(() => {
 //用户管理数据库
 const user_db = new sqlite3.Database('./users.db');
 user_db.serialize(() => {
-  user_db.run("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, username TEXT, password TEXT)");
+  user_db.run("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, username TEXT, password TEXT, avatar TEXT)");
 });
 
 const app = express();
@@ -53,7 +53,7 @@ app.post('/login', (req, res) => {
         return res.status(400).json({ error: 'Invalid username or password' });
       }
 
-      const token = jwt.sign({ userId: row.id, username: row.username }, JWT_SECRET, { expiresIn: '1h' });
+      const token = jwt.sign({ userId: row.id, username: row.username, user_avatar: row.avatar }, JWT_SECRET, { expiresIn: '1h' });
 
       res.json({ message: 'Login successful', token })
     })
@@ -62,7 +62,7 @@ app.post('/login', (req, res) => {
 
 // 注册接口
 app.post('/register', (req, res) => {
-  const { username, password } = req.body;
+  const { username, password, avatar_url } = req.body;
   user_db.get("SELECT * FROM users WHERE username = ?", [username], (err, row) => {
     if (err) {
       return res.status(500).json({ error: '数据库查询错误' });
@@ -74,11 +74,12 @@ app.post('/register', (req, res) => {
       if (err) {
         return res.status(500).json({ error: 'Failed to hash password' });
       }
-      const stmt = user_db.prepare("INSERT INTO users (username, password) VALUES (?, ?)");
-      stmt.run(username, hashedPassword, function (err) {
+      const stmt = user_db.prepare("INSERT INTO users (username, password, avatar) VALUES (?, ?, ?)");
+      stmt.run(username, hashedPassword, avatar_url, function (err) {
         if (err) {
           return res.status(500).json({ error: 'Failed to register user' });
         }
+        console.log('用户名', username, '用户密码', hashedPassword, "用户头像", avatar_url);
         res.status(201).json({ message: 'User registered successfully' });
       });
     });
@@ -128,7 +129,7 @@ const wss = new WebSocketServer({ noServer: true });
 wss.on('connection', (ws) => {
   console.log("WebSocket connection established");
   ws.on('message', (data) => {
-    const { chatroom, name, message } = JSON.parse(data);
+    const { chatroom, name, message, avatar } = JSON.parse(data);
 
     chatroomsDb.get("SELECT * FROM chatrooms WHERE name = ?", [chatroom], (err, row) => {
       if (err) {
@@ -148,9 +149,9 @@ wss.on('connection', (ws) => {
 
       console.log(dbPath);
 
-      messages_db.run("CREATE TABLE IF NOT EXISTS messages (id INTEGER PRIMARY KEY, name TEXT, message TEXT)");
+      messages_db.run("CREATE TABLE IF NOT EXISTS messages (id INTEGER PRIMARY KEY, name TEXT, message TEXT, avatar_url TEXT)");
 
-      messages_db.run("INSERT INTO messages (name, message) VALUES (?, ?)", [name, message], function (err) {
+      messages_db.run("INSERT INTO messages (name, message, avatar_url) VALUES (?, ?, ?)", [name, message, avatar], function (err) {
         if (err) {
           console.error(err);
         } else {
@@ -172,35 +173,99 @@ wss.on('connection', (ws) => {
 
 // 修改聊天室信息
 app.post('/api/mod', (req, res) => {
+  const token = req.headers.authorization?.split(' ')[1];
   const { chatroom_previous, owner_previous, chatroom_modified, owner_modified } = req.body;
+  if (!token) {
+    return res.status(401).json({ success: false, message: 'Token is required' });
+  }
 
-  user_db.get("SELECT * FROM users WHERE username = ?", [owner_modified], (err, row) => {
+
+  jwt.verify(token, JWT_SECRET, (err, decoded) => {
     if (err) {
-      return res.status(500).json({ error: '用户数据库查询失败' });
+      return res.status(401).json({ success: false, message: 'Token is invalid' });
     }
-    if (!row) {
-      return res.status(404).json({ error: '指定用户不存在' });
-    }
-
-    chatroomsDb.get("SELECT * FROM chatrooms WHERE name = ? AND owner = ?", [chatroom_previous, owner_previous], (err, row) => {
+    const username = decoded.username;
+    chatroomsDb.get("SELECT owner FROM chatrooms WHERE name = ?", [chatroom_previous], (err, row) => {
       if (err) {
-        return res.status(500).json({ error: '数据库查询错误' });
-      }
-      if (!row) {
-        return res.status(400).json({ error: '找不到匹配的聊天室' });
+        return res.status(500).json({ success: false, message: 'Database error' });
       }
 
-      // 更新聊天室信息
-      chatroomsDb.run("UPDATE chatrooms SET name = ?, owner = ? WHERE name = ? AND owner = ?",
-        [chatroom_modified, owner_modified, chatroom_previous, owner_previous], (err) => {
+      if (!row) {
+        return res.status(404).json({ success: false, message: 'Chatroom not found' });
+      }
+
+      console.log('当前用户名', username);
+      console.log('当前服务器属于：', row.owner);
+
+      if (row.owner === username) {
+
+        user_db.get("SELECT * FROM users WHERE username = ?", [owner_modified], (err, row) => {
           if (err) {
-            return res.status(500).json({ error: '更新聊天室失败' });
+            return res.status(500).json({ error: '用户数据库查询失败' });
           }
-          res.json({ message: '聊天室信息修改成功' });
+          if (!row) {
+            return res.status(404).json({ error: '指定用户不存在' });
+          }
+
+          chatroomsDb.get("SELECT * FROM chatrooms WHERE name = ? AND owner = ?", [chatroom_previous, owner_previous], (err, row) => {
+            if (err) {
+              return res.status(500).json({ error: '数据库查询错误' });
+            }
+            if (!row) {
+              return res.status(400).json({ error: '找不到匹配的聊天室' });
+            }
+
+            // 更新聊天室信息
+            chatroomsDb.run("UPDATE chatrooms SET name = ?, owner = ? WHERE name = ? AND owner = ?",
+              [chatroom_modified, owner_modified, chatroom_previous, owner_previous], (err) => {
+                if (err) {
+                  return res.status(500).json({ error: '更新聊天室失败' });
+                }
+                res.json({ message: '聊天室信息修改成功' });
+              });
+          });
         });
+      } else {
+        return res.json({ success: true, isOwner: false });
+      }
     });
-  });
+  })
 });
+
+// 跳转后台验证
+app.post('/api/verifyChatroomOwner', (req, res) => {
+  const token = req.headers.authorization?.split(' ')[1];
+  const { chatroom } = req.body;
+
+  if (!token) {
+    return res.status(401).json({ success: false, message: 'Token is required' });
+  }
+
+  jwt.verify(token, JWT_SECRET, (err, decoded) => {
+    if (err) {
+      return res.status(401).json({ success: false, message: 'Token is invalid' });
+    }
+    const username = decoded.username;
+    chatroomsDb.get("SELECT owner FROM chatrooms WHERE name = ?", [chatroom], (err, row) => {
+      if (err) {
+        return res.status(500).json({ success: false, message: 'Database error' });
+      }
+
+      if (!row) {
+        return res.status(404).json({ success: false, message: 'Chatroom not found' });
+      }
+
+      console.log('当前用户名', username);
+      console.log('当前服务器属于：', row.owner);
+
+      if (row.owner === username) {
+        res.json({ success: true, isOwner: true });
+      } else {
+        res.json({ success: true, isOwner: false });
+      }
+    });
+  })
+})
 
 
 

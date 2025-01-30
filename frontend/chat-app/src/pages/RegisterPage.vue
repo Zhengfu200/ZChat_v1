@@ -11,6 +11,7 @@
                         <q-input rounded outlined v-model="username" label="Username" />
                         <q-input style="padding-top: 10px;" rounded outlined v-model="password" label="Password" type="password" />
                         <q-input style="padding-top: 10px;" rounded outlined v-model="confirmPassword" label="Confirm Password" type="password" />
+                        <q-input style="padding-top: 10px;" rounded outlined v-model="Avatar_url" label="Please enter the url of your avatar(Optional)"/>
                     </q-card-section>
 
                     <q-card-actions>
@@ -30,7 +31,8 @@ export default {
         return {
             username: '',
             password: '',
-            confirmPassword: ''
+            confirmPassword: '',
+            Avatar_url: '',
         };
     },
     methods: {
@@ -42,7 +44,8 @@ export default {
                     // 使用 axios 发送注册请求到后端
                     axios.post('http://localhost:3000/register', {
                         username: this.username,
-                        password: this.password
+                        password: this.password,
+                        avatar_url: this.Avatar_url,
                     })
                         .then(response => {
                             console.log('Registration successful:', response.data);
