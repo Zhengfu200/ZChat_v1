@@ -1,4 +1,4 @@
-### ZChat: Build a Public Chatroom with Node.js + Vue3 + Quasar  
+### ZChat: Build a Public Chatroom with Node.js + Vue3 + Quasar + sqlite3
 
 #### 2025/1/30:
 ##### 🙃前端：
