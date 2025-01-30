@@ -23,8 +23,8 @@
         <q-card-section>
           <div class="text-h6">Chatroom Details</div>
           <div v-if="current_chatroom">
-            <p><q-badge rounded color="blue" /> Chatroom Name:{{ current_chatroom }}</p>
-            <p><q-badge rounded color="red" /> Owner:{{ current_chatroom_owner }}</p>
+            <p><q-badge rounded color="blue" /> Chatroom Name: {{ current_chatroom }}</p>
+            <p><q-badge rounded color="red" /> Owner: {{ current_chatroom_owner }}</p>
           </div>
           <div v-else>
             <p>No chatroom selected.</p>
