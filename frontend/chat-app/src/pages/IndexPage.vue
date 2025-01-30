@@ -23,8 +23,8 @@
         <q-card-section>
           <div class="text-h6">Chatroom Details</div>
           <div v-if="current_chatroom">
-            <p><strong>Chatroom Name:</strong> {{ current_chatroom }}</p>
-            <p><strong>Created By:</strong>{{ current_chatroom_owner }}</p>
+            <p><q-badge rounded color="blue" /> Chatroom Name:{{ current_chatroom }}</p>
+            <p><q-badge rounded color="red" /> Owner:{{ current_chatroom_owner }}</p>
           </div>
           <div v-else>
             <p>No chatroom selected.</p>
@@ -49,9 +49,18 @@
     </q-drawer>
 
     <div class="chat-container">
-      <q-chat-message v-for="msg in messages" :key="msg.id" :sent="msg.name === name" :text="[msg.message]"
-        :name="msg.name"
-        :avatar="msg.avatar_url ? msg.avatar_url : 'https://img.icons8.com/?size=100&id=YXG86oegZMMh&format=png&color=000000'" />
+      <q-chat-message v-for="msg in messages" :key="msg.name" :sent="msg.name === name" :text="[msg.message]"
+        :name="null" name-html
+        :avatar="msg.avatar_url ? msg.avatar_url : 'https://img.icons8.com/?size=100&id=YXG86oegZMMh&format=png&color=000000'"
+        :stamp="msg.date">
+        <template v-slot:name>
+          <div>
+            <q-badge v-if="msg.badges && msg.badges.includes('owner')" label="Owner" color="red" />
+          <q-badge v-if="msg.badges && msg.badges.includes('moderator')" label="Mod" color="blue" />
+          </div>
+          <span v-html="`<span>${msg.name}</span>`"></span>
+        </template>
+      </q-chat-message>
     </div>
 
     <div class="chat-input-container">
@@ -80,6 +89,7 @@ export default {
       showDetails: false,
       current_chatroom_owner: '',
       avatar_url: '',
+      badges: [],
     };
   },
   mounted() {
@@ -95,7 +105,6 @@ export default {
       console.log(decodedToken);  // 输出解码后的 token
       this.name = decodedToken.username;
       this.avatar_url = decodedToken.user_avatar;
-      console.log(this.avatar_url);
     } catch (err) {
       console.error("Invalid token or decoding failed:", err);
       this.$router.push('/login');  // 如果解码失败，跳转到登录页面
@@ -114,6 +123,7 @@ export default {
     this.ws.onmessage = (event) => {
       const newMessage = JSON.parse(event.data);
       this.messages.push(newMessage);
+      this.fetchMessages();
     };
 
     // 监听连接关闭事件
@@ -165,8 +175,8 @@ export default {
     },
     sendMessage() {
       if (this.isConnected && this.message && this.name) {
-        const msg = { chatroom: this.current_chatroom, name: this.name, avatar: this.avatar_url, message: this.message };
-        console.log(msg.avatar);
+        const currentTime = new Date().toISOString();
+        const msg = { chatroom: this.current_chatroom, name: this.name, avatar: this.avatar_url, message: this.message, currentTime: currentTime };
         this.ws.send(JSON.stringify(msg));
         this.message = ''; // 清空输入框
       } else {
@@ -211,7 +221,28 @@ export default {
           chatroom: this.current_chatroom
         })
       })
-        .then(response => response.json())
+        .then(response => {
+          if (response.status === 401) {
+            // 如果返回 401 错误，表示需要 Token
+            this.$q.notify({
+              color: 'negative',
+              message: 'Token is required',
+              icon: 'error',
+              position: 'top'
+            });
+            throw new Error('Token is required');
+          } else if (response.status === 402) {
+            // 如果返回 402 错误，表示 Token 无效
+            this.$q.notify({
+              color: 'negative',
+              message: 'Token is invalid,please try to login again!',
+              icon: 'error',
+              position: 'top'
+            });
+            throw new Error('Token is invalid');
+          }
+          return response.json();
+        })
         .then(data => {
           if (data.isOwner) {
             // 如果是 owner，跳转到 moderator 页面

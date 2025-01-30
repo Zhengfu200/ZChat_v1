@@ -129,7 +129,9 @@ const wss = new WebSocketServer({ noServer: true });
 wss.on('connection', (ws) => {
   console.log("WebSocket connection established");
   ws.on('message', (data) => {
-    const { chatroom, name, message, avatar } = JSON.parse(data);
+    const { chatroom, name, message, avatar, currentTime } = JSON.parse(data);
+
+    const readable_currentTime = formatTimestampToReadableTime(currentTime);
 
     chatroomsDb.get("SELECT * FROM chatrooms WHERE name = ?", [chatroom], (err, row) => {
       if (err) {
@@ -139,6 +141,15 @@ wss.on('connection', (ws) => {
         return res.status(404).json({ error: '找不到匹配的聊天室' });
       }
       const dbPath = row.db_path
+      const current_chatroom_owner = row.owner
+      let badges = [];
+
+      if (name === current_chatroom_owner) {
+        badges.push('owner');
+      }
+      if(name === current_chatroom_owner) {
+        badges.push('moderator');
+      }
 
       // 如果数据库文件不存在，返回错误
       if (!fs.existsSync(dbPath)) {
@@ -149,16 +160,16 @@ wss.on('connection', (ws) => {
 
       console.log(dbPath);
 
-      messages_db.run("CREATE TABLE IF NOT EXISTS messages (id INTEGER PRIMARY KEY, name TEXT, message TEXT, avatar_url TEXT)");
+      messages_db.run("CREATE TABLE IF NOT EXISTS messages (id INTEGER PRIMARY KEY, name TEXT, message TEXT, avatar_url TEXT, date TEXT, badges TEXT)");
 
-      messages_db.run("INSERT INTO messages (name, message, avatar_url) VALUES (?, ?, ?)", [name, message, avatar], function (err) {
+      messages_db.run("INSERT INTO messages (name, message, avatar_url, date, badges) VALUES (?, ?, ?, ?, ?)", [name, message, avatar, readable_currentTime, JSON.stringify(badges)], function (err) {
         if (err) {
           console.error(err);
         } else {
           // 广播消息
           wss.clients.forEach((client) => {
             if (client.readyState === ws.OPEN) {
-              client.send(JSON.stringify({ name, message }));
+              client.send(JSON.stringify({ name, message, avatar, readable_currentTime, badges }));
             }
           });
         }
@@ -243,7 +254,8 @@ app.post('/api/verifyChatroomOwner', (req, res) => {
 
   jwt.verify(token, JWT_SECRET, (err, decoded) => {
     if (err) {
-      return res.status(401).json({ success: false, message: 'Token is invalid' });
+      console.log('Token is invalid');
+      return res.status(402).json({ success: false, message: 'Token is invalid' });
     }
     const username = decoded.username;
     chatroomsDb.get("SELECT owner FROM chatrooms WHERE name = ?", [chatroom], (err, row) => {
@@ -267,7 +279,18 @@ app.post('/api/verifyChatroomOwner', (req, res) => {
   })
 })
 
+//转化时间戳格式
+function formatTimestampToReadableTime(isoTime) {
+  const date = new Date(isoTime);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');  // 补齐为两位
+  const day = String(date.getDate()).padStart(2, '0');
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  const seconds = String(date.getSeconds()).padStart(2, '0');
 
+  return `${month}-${day} ${hours}:${minutes}`;
+}
 
 // HTTP 升级为 WebSocket 连接
 server.on('upgrade', (req, socket, head) => {
