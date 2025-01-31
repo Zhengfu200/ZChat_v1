@@ -54,9 +54,10 @@
         :avatar="msg.avatar_url ? msg.avatar_url : 'https://img.icons8.com/?size=100&id=YXG86oegZMMh&format=png&color=000000'"
         :stamp="msg.date">
         <template v-slot:name>
-          <div>
-            <q-badge v-if="msg.badges && msg.badges.includes('owner')" label="Owner" color="red" />
-          <q-badge v-if="msg.badges && msg.badges.includes('moderator')" label="Mod" color="blue" />
+          <div v-for="(all_badge, key) in all_badges" :key="key" style="display: flex; gap: 3px;flex-wrap: wrap">
+            <div v-for="(idIndex, value) in all_badge" :key="idIndex">
+              <q-badge v-if="msg.badges && msg.badges.includes(value)" :label="value" :color="getBadgeColor(value)"/>
+            </div>
           </div>
           <span v-html="`<span>${msg.name}</span>`"></span>
         </template>
@@ -79,7 +80,7 @@ export default {
     return {
       messages: [],
       message: '',
-      name: '',
+      name: '', Id: '',
       ws: null, // WebSocket对象
       isConnected: false, // 连接状态标志
       currentTime: '',
@@ -89,7 +90,7 @@ export default {
       showDetails: false,
       current_chatroom_owner: '',
       avatar_url: '',
-      badges: [],
+      badges: [], all_badges: [],
     };
   },
   mounted() {
@@ -97,17 +98,18 @@ export default {
     console.log(token);
     if (!localStorage.getItem('token')) {
       this.$router.push('/login');
-      return; // 如果没有登录，阻止进一步加载页面内容
+      return;
     }
 
     try {
       const decodedToken = jwtDecode(token);
-      console.log(decodedToken);  // 输出解码后的 token
+      console.log(decodedToken);
       this.name = decodedToken.username;
+      this.Id = decodedToken.userId;
       this.avatar_url = decodedToken.user_avatar;
     } catch (err) {
       console.error("Invalid token or decoding failed:", err);
-      this.$router.push('/login');  // 如果解码失败，跳转到登录页面
+      this.$router.push('/login');
     }
 
     // WebSocket 连接
@@ -162,12 +164,21 @@ export default {
       console.log(this.current_chatroom);
       const chatroom = this.chatrooms.find(c => c.name === this.current_chatroom);
       if (chatroom) {
-        this.current_chatroom_owner = chatroom.owner;  // 将匹配聊天室的 owner 赋值给 current_chatroom_owner
+        this.current_chatroom_owner = chatroom.owner;
       }
+      fetch(`http://localhost:3000/api/chatroomBadges?chatroom=${this.current_chatroom}`)
+        .then(response => response.json())
+        .then(data => {
+          this.all_badges = data.badges
+          console.log(this.all_badges);
+        })
+        .catch(err => {
+          console.error("Error fetching chatroom badges:", err);
+        });
       fetch(`http://localhost:3000/api/messages?chatroom=${this.current_chatroom}`)
         .then(response => response.json())
         .then(data => {
-          this.messages = data.messages; // 获取历史消息并反转，显示最旧的消息
+          this.messages = data.messages;
         })
         .catch(err => {
           console.error("Error fetching messages:", err);
@@ -176,7 +187,7 @@ export default {
     sendMessage() {
       if (this.isConnected && this.message && this.name) {
         const currentTime = new Date().toISOString();
-        const msg = { chatroom: this.current_chatroom, name: this.name, avatar: this.avatar_url, message: this.message, currentTime: currentTime };
+        const msg = { chatroom: this.current_chatroom, Id: this.Id, name: this.name, avatar: this.avatar_url, message: this.message, currentTime: currentTime };
         this.ws.send(JSON.stringify(msg));
         this.message = ''; // 清空输入框
       } else {
@@ -271,6 +282,17 @@ export default {
             position: 'top'
           });
         });
+    },
+    getBadgeColor(value) {
+      if (value == 'owner') {
+        return 'red';
+      } else if (value == 'moderator') {
+        return 'blue';
+      } else if(value == 'developer') {
+        return 'purple';
+      }else {
+        return 'green';
+      }
     },
   }
 };

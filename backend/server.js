@@ -10,7 +10,7 @@ const fs = require('fs');
 //聊天室管理数据库
 const chatroomsDb = new sqlite3.Database('./Chatrooms.db');
 chatroomsDb.serialize(() => {
-  chatroomsDb.run("CREATE TABLE IF NOT EXISTS chatrooms (id INTEGER PRIMARY KEY, name TEXT UNIQUE, owner TEXT, db_path TEXT)");
+  chatroomsDb.run("CREATE TABLE IF NOT EXISTS chatrooms (id INTEGER PRIMARY KEY, name TEXT UNIQUE, db_path TEXT, owner_id INTEGER)");
 });
 
 //用户管理数据库
@@ -25,7 +25,7 @@ app.use(express.json());
 
 const cors = require('cors');
 app.use(cors());
-app.use(bodyParser.json()); // 解析JSON请求
+app.use(bodyParser.json());
 
 const JWT_SECRET = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6Ind3dy5ranNvbi5jb20iLCJzdWIiOiJkZW1vIiwiaWF0IjoxNzM3OTczOTMyLCJuYmYiOjE3Mzc5NzM5MzIsImV4cCI6MTczODA2MDMzMn0.T7gBlg6XwSLWMx5vwXihH3B1q7B8SyJohhrTdXOtGBw';
 
@@ -86,7 +86,7 @@ app.post('/register', (req, res) => {
   });
 });
 
-// 获取历史消息
+// 获取历史消息（1.历史消息）
 app.get('/api/messages', (req, res) => {
   const chatroom = req.query.chatroom;
   if (!chatroom) {
@@ -119,6 +119,39 @@ app.get('/api/messages', (req, res) => {
   });
 });
 
+//获取历史消息(2.聊天室徽章)
+app.get('/api/chatroomBadges', (req, res) => {
+  const chatroom = req.query.chatroom;
+  if (!chatroom) {
+    return res.status(400).json({ error: 'Chatroom name is required' });
+  }
+
+  chatroomsDb.get("SELECT * FROM chatrooms WHERE name = ?", [chatroom], (err, row) => {
+    if (err) {
+      return res.status(500).json({ error: '查询聊天室信息失败' });
+    }
+    if (!row) {
+      return res.status(404).json({ error: '找不到匹配的聊天室' });
+    }
+    const dbPath = row.db_path
+
+    // 如果数据库文件不存在，返回错误
+    if (!fs.existsSync(dbPath)) {
+      return res.status(404).json({ error: 'Chatroom not found' });
+    }
+
+    const messages_db = new sqlite3.Database(dbPath);
+
+    messages_db.all("SELECT * FROM badges", (err, rows) => {
+      if (err) {
+        res.status(500).json({ error: err.message });
+        return;
+      }
+      res.json({ badges: rows });
+    });
+  });
+});
+
 // 创建 HTTP 服务器
 const server = app.listen(3000, () => {
   console.log('Server running on http://localhost:3000');
@@ -129,7 +162,7 @@ const wss = new WebSocketServer({ noServer: true });
 wss.on('connection', (ws) => {
   console.log("WebSocket connection established");
   ws.on('message', (data) => {
-    const { chatroom, name, message, avatar, currentTime } = JSON.parse(data);
+    const { chatroom, Id, name, message, avatar, currentTime } = JSON.parse(data);
 
     const readable_currentTime = formatTimestampToReadableTime(currentTime);
 
@@ -141,15 +174,7 @@ wss.on('connection', (ws) => {
         return res.status(404).json({ error: '找不到匹配的聊天室' });
       }
       const dbPath = row.db_path
-      const current_chatroom_owner = row.owner
       let badges = [];
-
-      if (name === current_chatroom_owner) {
-        badges.push('owner');
-      }
-      if(name === current_chatroom_owner) {
-        badges.push('moderator');
-      }
 
       // 如果数据库文件不存在，返回错误
       if (!fs.existsSync(dbPath)) {
@@ -158,22 +183,50 @@ wss.on('connection', (ws) => {
 
       const messages_db = new sqlite3.Database(dbPath);
 
-      console.log(dbPath);
-
-      messages_db.run("CREATE TABLE IF NOT EXISTS messages (id INTEGER PRIMARY KEY, name TEXT, message TEXT, avatar_url TEXT, date TEXT, badges TEXT)");
-
-      messages_db.run("INSERT INTO messages (name, message, avatar_url, date, badges) VALUES (?, ?, ?, ?, ?)", [name, message, avatar, readable_currentTime, JSON.stringify(badges)], function (err) {
+      messages_db.all("PRAGMA table_info(badges)", (err, columns) => {
         if (err) {
-          console.error(err);
-        } else {
-          // 广播消息
-          wss.clients.forEach((client) => {
-            if (client.readyState === ws.OPEN) {
-              client.send(JSON.stringify({ name, message, avatar, readable_currentTime, badges }));
-            }
-          });
+          console.error('查询badges表字段失败：', err);
+          return;
         }
-      });
+
+        const fieldNames = columns.map(col => col.name);
+
+        messages_db.get("SELECT * FROM badges", (err, badgeRow) => {
+          if (err) {
+            console.error('查询 badges 表失败:', err);
+            return;
+          }
+
+          if (badgeRow) {
+            fieldNames.forEach(field => {
+              if (badgeRow[field]) {
+                try {
+                  const idsList = JSON.parse(badgeRow[field]);
+                  if (Array.isArray(idsList) && idsList.includes(Id.toString())) {
+                    badges.push(field);
+                  } else {
+                  }
+                } catch (err) {
+                  console.error('解析 badges 表数据失败:', err);
+                  return;
+                }
+              }
+            })
+
+            messages_db.run("INSERT INTO messages (name, message, avatar_url, date, badges) VALUES (?, ?, ?, ?, ?)", [name, message, avatar, readable_currentTime, JSON.stringify(badges)], function (err) {
+              if (err) {
+                console.error(err);
+              } else {
+                wss.clients.forEach((client) => {
+                  if (client.readyState === ws.OPEN) {
+                    client.send(JSON.stringify({ name, message, avatar, readable_currentTime, badges }));
+                  }
+                });
+              }
+            });
+          }
+        })
+      })
     });
   });
 
@@ -182,7 +235,7 @@ wss.on('connection', (ws) => {
   });
 });
 
-// 修改聊天室信息
+// 修改聊天室信息(1.基本信息）
 app.post('/api/mod', (req, res) => {
   const token = req.headers.authorization?.split(' ')[1];
   const { chatroom_previous, owner_previous, chatroom_modified, owner_modified } = req.body;
@@ -195,50 +248,94 @@ app.post('/api/mod', (req, res) => {
     if (err) {
       return res.status(401).json({ success: false, message: 'Token is invalid' });
     }
-    const username = decoded.username;
-    chatroomsDb.get("SELECT owner FROM chatrooms WHERE name = ?", [chatroom_previous], (err, row) => {
+    const userId = decoded.userId;
+
+    chatroomsDb.get("SELECT * FROM chatrooms WHERE name = ?", [chatroom_previous], (err, row) => {
       if (err) {
-        return res.status(500).json({ success: false, message: 'Database error' });
+        return res.status(500).json({ error: '查询聊天室信息失败' });
       }
-
       if (!row) {
-        return res.status(404).json({ success: false, message: 'Chatroom not found' });
+        return res.status(404).json({ error: '找不到匹配的聊天室' });
+      }
+      const dbPath = row.db_path
+      // 如果数据库文件不存在，返回错误
+      if (!fs.existsSync(dbPath)) {
+        return res.status(404).json({ error: 'Chatroom not found' });
       }
 
-      console.log('当前用户名', username);
-      console.log('当前服务器属于：', row.owner);
+      const messages_db = new sqlite3.Database(dbPath);
 
-      if (row.owner === username) {
+      chatroomsDb.get("SELECT owner_id FROM chatrooms WHERE name = ?", [chatroom_previous], (err, row) => {
+        if (err) {
+          return res.status(500).json({ success: false, message: 'Database error' });
+        }
 
-        user_db.get("SELECT * FROM users WHERE username = ?", [owner_modified], (err, row) => {
-          if (err) {
-            return res.status(500).json({ error: '用户数据库查询失败' });
-          }
-          if (!row) {
-            return res.status(404).json({ error: '指定用户不存在' });
-          }
+        if (!row) {
+          return res.status(404).json({ success: false, message: 'Chatroom not found' });
+        }
 
-          chatroomsDb.get("SELECT * FROM chatrooms WHERE name = ? AND owner = ?", [chatroom_previous, owner_previous], (err, row) => {
+        const owner_previous_id = row.owner_id;
+        if (owner_previous_id === userId) {
+          console.log("accesseble");
+          user_db.get("SELECT * FROM users WHERE username = ?", [owner_modified], (err, row) => {
             if (err) {
-              return res.status(500).json({ error: '数据库查询错误' });
+              return res.status(500).json({ error: '用户数据库查询失败' });
             }
             if (!row) {
-              return res.status(400).json({ error: '找不到匹配的聊天室' });
+              return res.status(404).json({ error: '指定用户不存在' });
             }
 
-            // 更新聊天室信息
-            chatroomsDb.run("UPDATE chatrooms SET name = ?, owner = ? WHERE name = ? AND owner = ?",
-              [chatroom_modified, owner_modified, chatroom_previous, owner_previous], (err) => {
-                if (err) {
-                  return res.status(500).json({ error: '更新聊天室失败' });
-                }
-                res.json({ message: '聊天室信息修改成功' });
-              });
+            const owner_modified_id = row.id;
+            chatroomsDb.get("SELECT * FROM chatrooms WHERE name = ? AND owner = ?", [chatroom_previous, owner_previous], (err, row) => {
+              if (err) {
+                return res.status(500).json({ error: '数据库查询错误' });
+              }
+              if (!row) {
+                return res.status(400).json({ error: '找不到匹配的聊天室' });
+              }
+
+              // 更新聊天室信息
+              chatroomsDb.run("UPDATE chatrooms SET name = ?, owner = ?, owner_id = ? WHERE name = ? AND owner = ? AND owner_id = ?",
+                [chatroom_modified, owner_modified, owner_modified_id, chatroom_previous, owner_previous, owner_previous_id], (err) => {
+                  messages_db.get("SELECT * FROM badges", (err, badgeRow) => {
+                    if (err) {
+                      console.error('查询 badges 表失败:', err);
+                      return res.status(500).json({ error: '查询 badges 表失败' });
+                    }
+
+                    if (badgeRow && badgeRow.owner) {
+                      try {
+                        let ownerList = JSON.parse(badgeRow.owner);
+                        ownerList = []; 
+                        ownerList.push(String(owner_modified_id));
+                        const updatedOwnerList = JSON.stringify(ownerList);
+                        messages_db.run("UPDATE badges SET owner = ? WHERE owner IS NOT NULL", [updatedOwnerList], (err) => {
+                          if (err) {
+                            console.error('更新 badges 表失败:', err);
+                            return res.status(500).json({ error: '更新 badges 表失败' });
+                          }
+                          console.log('更新后的 owner 列表:', updatedOwnerList);
+                          res.json({ message: '聊天室信息和所有者更新成功' });
+                        });
+
+                      } catch (err) {
+                        console.error('解析 badges 表数据失败:', err);
+                        return res.status(500).json({ error: '解析 badges 表数据失败' });
+                      }
+                    } else {
+                      return res.status(404).json({ error: '没有找到对应的 owner 数据' });
+                    }
+                  });
+                  if (err) {
+                    return res.status(500).json({ error: '更新聊天室失败' });
+                  }
+                });
+            });
           });
-        });
-      } else {
-        return res.json({ success: true, isOwner: false });
-      }
+        } else {
+          return res.status(500).json({ error: 'You do not have the necessary permissions to modify this chatroom' });
+        }
+      });
     });
   })
 });
@@ -257,8 +354,8 @@ app.post('/api/verifyChatroomOwner', (req, res) => {
       console.log('Token is invalid');
       return res.status(402).json({ success: false, message: 'Token is invalid' });
     }
-    const username = decoded.username;
-    chatroomsDb.get("SELECT owner FROM chatrooms WHERE name = ?", [chatroom], (err, row) => {
+    const userId = decoded.userId;
+    chatroomsDb.get("SELECT owner_id FROM chatrooms WHERE name = ?", [chatroom], (err, row) => {
       if (err) {
         return res.status(500).json({ success: false, message: 'Database error' });
       }
@@ -267,10 +364,7 @@ app.post('/api/verifyChatroomOwner', (req, res) => {
         return res.status(404).json({ success: false, message: 'Chatroom not found' });
       }
 
-      console.log('当前用户名', username);
-      console.log('当前服务器属于：', row.owner);
-
-      if (row.owner === username) {
+      if (row.owner_id === userId) {
         res.json({ success: true, isOwner: true });
       } else {
         res.json({ success: true, isOwner: false });
@@ -282,12 +376,10 @@ app.post('/api/verifyChatroomOwner', (req, res) => {
 //转化时间戳格式
 function formatTimestampToReadableTime(isoTime) {
   const date = new Date(isoTime);
-  const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');  // 补齐为两位
   const day = String(date.getDate()).padStart(2, '0');
   const hours = String(date.getHours()).padStart(2, '0');
   const minutes = String(date.getMinutes()).padStart(2, '0');
-  const seconds = String(date.getSeconds()).padStart(2, '0');
 
   return `${month}-${day} ${hours}:${minutes}`;
 }
