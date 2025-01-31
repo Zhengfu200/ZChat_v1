@@ -1,7 +1,7 @@
 <template>
   <q-page padding>
     <q-header elevated>
-      <q-bar>
+      <q-bar class="bg-primary">
         <q-btn dense flat icon="chat" />
         <div class="text-weight-bold">
           ZChat
@@ -18,6 +18,7 @@
       </q-bar>
     </q-header>
 
+    <!--聊天室详细信息对话框-->
     <q-dialog v-model="showDetails">
       <q-card>
         <q-card-section>
@@ -36,7 +37,58 @@
       </q-card>
     </q-dialog>
 
-    <q-drawer v-model="leftDrawerOpen" side="left" :width="250" bordered>
+    <!--一级侧滑栏-->
+    <q-drawer v-model="leftDrawerOpen_1" side="left" style="width: 25vw;" bordered>
+      <q-card>
+        <q-card-section class="avatar-section text-center">
+          <q-avatar>
+            <img
+              :src="avatar_url ? avatar_url : 'https://img.icons8.com/?size=100&id=YXG86oegZMMh&format=png&color=000000'" />
+          </q-avatar>
+          <div style="margin-top: 10px;">🖖 Name : {{ name }}</div>
+          <div>🥰 Bio : {{ bio }}</div>
+          <div>🥳 Birthday : {{ birthday }}</div>
+        </q-card-section>
+        <q-btn round icon="arrow_forward" class="custom-btn" flat @click="handleButtonClick" />
+      </q-card>
+      <q-separator inset />
+      <q-card-section>
+        <q-expansion-item expand-separator icon="chat" label="Chatrooms  " caption="点击展开聊天室">
+          <q-list separator bordened>
+            <q-separator />
+            <q-item v-for="chatroom in chatrooms" :key="chatroom.id" clickable @click="switchChatRoom(chatroom.name)">
+              <q-item-section :class="chatroom.name === current_chatroom ? 'text-primary' : ''">
+                {{ chatroom.name }}
+              </q-item-section>
+            </q-item>
+          </q-list>
+        </q-expansion-item>
+      </q-card-section>
+      <q-separator inset />
+      <q-card-section>
+        <q-btn flat class="full-width no-border" @click="newChatroomDialogVisible = true">新建聊天室</q-btn>
+      </q-card-section>
+    </q-drawer>
+
+    <!--新建聊天室对话框-->
+    <q-dialog v-model="newChatroomDialogVisible" persistent>
+      <q-card style="width: 400px;">
+        <q-card-section>
+          <div class="text-h6">新建聊天室</div>
+        </q-card-section>
+
+        <q-card-section>
+          <q-input v-model="newChatroomName" label="Chatroom Name" filled />
+        </q-card-section>
+
+        <q-card-actions align="right">
+          <q-btn flat label="取消" color="negative" @click="newChatroomDialogVisible = false" />
+          <q-btn flat label="确认" color="primary" @click="CreateChatroom" />
+        </q-card-actions>
+      </q-card>
+    </q-dialog>
+
+    <q-drawer v-model="leftDrawerOpen_2" side="left" style="width: 25vw;" bordered>
       <q-list separator bordened>
         <q-item-label class="text-h6" style="padding: 10px;">Chatrooms</q-item-label>
         <q-separator />
@@ -56,7 +108,7 @@
         <template v-slot:name>
           <div v-for="(all_badge, key) in all_badges" :key="key" style="display: flex; gap: 3px;flex-wrap: wrap">
             <div v-for="(idIndex, value) in all_badge" :key="idIndex">
-              <q-badge v-if="msg.badges && msg.badges.includes(value)" :label="value" :color="getBadgeColor(value)"/>
+              <q-badge v-if="msg.badges && msg.badges.includes(value)" :label="value" :color="getBadgeColor(value)" />
             </div>
           </div>
           <span v-html="`<span>${msg.name}</span>`"></span>
@@ -80,17 +132,17 @@ export default {
     return {
       messages: [],
       message: '',
-      name: '', Id: '',
-      ws: null, // WebSocket对象
-      isConnected: false, // 连接状态标志
+      name: '', Id: '', avatar_url: '', bio: '未设置', birthday: '未设置',
+      ws: null,
+      isConnected: false,
       currentTime: '',
-      leftDrawerOpen: false,
+      leftDrawerOpen_1: false, leftDrawerOpen_2: false, newChatroomDialogVisible: false,
       current_chatroom: '',
       chatrooms: [],
       showDetails: false,
       current_chatroom_owner: '',
-      avatar_url: '',
       badges: [], all_badges: [],
+      newChatroomName: '', newChatroomOwner: '', newChatroomModerator: '',
     };
   },
   mounted() {
@@ -202,7 +254,7 @@ export default {
       this.$router.push('/login');
     },
     toggleDrawer() {
-      this.leftDrawerOpen = !this.leftDrawerOpen; // 切换侧边栏状态
+      this.leftDrawerOpen_1 = !this.leftDrawerOpen_1; // 切换侧边栏状态
     },
     switchChatRoom(chatroomName) {
       this.current_chatroom = chatroomName;
@@ -288,12 +340,69 @@ export default {
         return 'red';
       } else if (value == 'moderator') {
         return 'blue';
-      } else if(value == 'developer') {
+      } else if (value == 'developer') {
         return 'purple';
-      }else {
+      } else {
         return 'green';
       }
     },
+    CreateChatroom() {
+      if (!this.newChatroomName.trim()) {
+        this.$q.notify({
+          type: 'negative',
+          message: '聊天室名称不能为空',
+          position: 'top'
+        });
+      } else {
+        // 在这里添加创建聊天室的逻辑
+        console.log('创建聊天室: ', this.newChatroomName);
+        this.newChatroomDialogVisible = false;
+        // 在这里添加创建聊天室的逻辑
+        console.log('创建聊天室: ', this.newChatroomName);
+
+        // 发送请求到后端 API
+        fetch('http://localhost:3000/api/CreateChatRoom', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            Id: this.Id,  
+            name: this.name, 
+            NewChatroomName: this.newChatroomName
+          })
+        })
+          .then((response) => {
+            console.log('服务器响应状态:', response.status); 
+            return response.text().then((text) => {
+              console.log('服务器返回的文本:', text); 
+              if (!response.ok) {
+                throw new Error('请求失败，状态码：' + response.status);
+              }
+              return text ? JSON.parse(text) : {};
+            });
+          })
+          .then((data) => {
+            console.log('聊天室创建成功:', data);
+            this.$q.notify({
+              type: 'positive',
+              message: '聊天室创建成功',
+              position: 'top'
+            });
+            this.newChatroomDialogVisible = false;
+            this.fetchChatrooms();
+          })
+          .catch((error) => {
+            // 处理错误响应
+            console.error('创建聊天室失败:', error);
+            this.$q.notify({
+              type: 'negative',
+              message: '创建聊天室失败，请重试',
+              position: 'top'
+            });
+          });
+      }
+    }
   }
 };
 </script>
@@ -332,5 +441,21 @@ export default {
 .chatroom-btn {
   width: 80%;
   margin: 0 auto;
+}
+
+.custom-btn {
+  position: absolute;
+  right: 10px;
+  /* 右侧边距 */
+  top: 50%;
+  /* 垂直居中 */
+  transform: translateY(-50%);
+  /* 垂直居中调整 */
+  background-color: transparent;
+  /* 透明背景 */
+  border: none;
+  /* 移除边框 */
+  color: black;
+  /* 按钮图标颜色 */
 }
 </style>

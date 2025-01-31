@@ -5,6 +5,7 @@ const path = require('path');
 const jwt = require('jsonwebtoken');
 const bodyParser = require('body-parser');
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
 const fs = require('fs');
 
 //聊天室管理数据库
@@ -166,6 +167,7 @@ wss.on('connection', (ws) => {
 
     const readable_currentTime = formatTimestampToReadableTime(currentTime);
 
+    //从Chatrooms.db定位Chatroom,查找历史消息数据库所在路径
     chatroomsDb.get("SELECT * FROM chatrooms WHERE name = ?", [chatroom], (err, row) => {
       if (err) {
         return res.status(500).json({ error: '查询聊天室信息失败' });
@@ -176,13 +178,16 @@ wss.on('connection', (ws) => {
       const dbPath = row.db_path
       let badges = [];
 
-      // 如果数据库文件不存在，返回错误
       if (!fs.existsSync(dbPath)) {
         return res.status(404).json({ error: 'Chatroom not found' });
       }
 
+
+      //连接消息数据库
       const messages_db = new sqlite3.Database(dbPath);
 
+
+      //检索badges表
       messages_db.all("PRAGMA table_info(badges)", (err, columns) => {
         if (err) {
           console.error('查询badges表字段失败：', err);
@@ -197,6 +202,7 @@ wss.on('connection', (ws) => {
             return;
           }
 
+          //检索badges字段中的内容，并于当前用户id匹配
           if (badgeRow) {
             fieldNames.forEach(field => {
               if (badgeRow[field]) {
@@ -306,7 +312,7 @@ app.post('/api/mod', (req, res) => {
                     if (badgeRow && badgeRow.owner) {
                       try {
                         let ownerList = JSON.parse(badgeRow.owner);
-                        ownerList = []; 
+                        ownerList = [];
                         ownerList.push(String(owner_modified_id));
                         const updatedOwnerList = JSON.stringify(ownerList);
                         messages_db.run("UPDATE badges SET owner = ? WHERE owner IS NOT NULL", [updatedOwnerList], (err) => {
@@ -370,6 +376,82 @@ app.post('/api/verifyChatroomOwner', (req, res) => {
         res.json({ success: true, isOwner: false });
       }
     });
+  })
+})
+
+app.post('/api/CreateChatRoom', (req, res) => {
+  const { Id, name, NewChatroomName } = req.body;
+
+  if (!name || !NewChatroomName || !Id) {
+    return res.status(400).json({ error: 'name and NewChatroomName are required' });
+  }
+
+  const dbName = `${crypto.randomBytes(4).toString('hex')}.db`;
+  const dbPath = path.join(__dirname, './messages', dbName);
+  const dbPath_relative = path.join('./messages', dbName);
+
+  if (!fs.existsSync(path.join(__dirname, './messages'))) {
+    fs.mkdirSync(path.join(__dirname, './messages'));
+  }
+
+  const db = new sqlite3.Database(dbPath, (err) => {
+    if (err) {
+      console.error('Error creating new database:', err);
+      return res.status(500).json({ error: 'Failed to create new database' });
+    }
+
+    db.serialize(() => {
+      db.run(`
+        CREATE TABLE IF NOT EXISTS messages (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          name TEXT,
+          message TEXT,
+          avatar_url TEXT,
+          date TEXT,
+          badges TEXT
+        )
+      `, (err) => {
+        if (err) {
+          console.error('Error creating messages table:', err);
+          return res.status(500).json({ error: 'Failed to create messages table' });
+        }
+
+        const ownerList = JSON.stringify([String(Id)]);
+        db.run(`CREATE TABLE IF NOT EXISTS badges (
+            owner TEXT NOT NULL,
+            moderator TEXT
+          )
+        `, (err) => {
+          if (err) {
+            console.error('Error creating badges table:', err);
+            return res.status(500).json({ error: 'Failed to create badges table' });
+          }
+
+          // 在 badges 表中插入数据
+          const insertBadges = `
+            INSERT INTO badges (owner, moderator)
+            VALUES (?, ?)
+          `;
+          db.run(insertBadges, [ownerList, null], function (err) {
+            if (err) {
+              console.error('Error inserting badges data:', err);
+              return res.status(500).json({ error: 'Failed to insert badges data' });
+            }
+            const insertChatroom = `
+                INSERT INTO chatrooms (name, owner, owner_id, db_path)
+                VALUES (?, ?, ?, ?)
+              `;
+            chatroomsDb.run(insertChatroom, [NewChatroomName, name, Id, dbPath_relative], (err) => {
+              if (err) {
+                console.error('Error inserting into chatrooms:', err);
+                return res.status(500).json({ error: 'Failed to insert into chatrooms' });
+              }
+              res.json({ message: 'Chatroom created successfully', dbPath: dbPath });
+            });
+          });
+        })
+      })
+    })
   })
 })
 
