@@ -1,5 +1,5 @@
 <template>
-  <q-page padding>
+  <q-page padding style="background-color: #ECF0F1;">
     <q-header elevated>
       <q-bar class="bg-primary">
         <q-btn dense flat icon="chat" />
@@ -17,7 +17,6 @@
         <div>{{ currentTime }}</div>
       </q-bar>
     </q-header>
-
     <!--聊天室详细信息对话框-->
     <q-dialog v-model="showDetails">
       <q-card>
@@ -46,10 +45,15 @@
               :src="avatar_url ? avatar_url : 'https://img.icons8.com/?size=100&id=YXG86oegZMMh&format=png&color=000000'" />
           </q-avatar>
           <div style="margin-top: 10px;">🖖 Name : {{ name }}</div>
-          <div>🥰 Bio : {{ bio }}</div>
-          <div>🥳 Birthday : {{ birthday }}</div>
+          <div>
+            <span v-if="bio === null">🥰 Bio : 未设置</span>
+            <span v-else>🥰 Bio : {{ bio }}</span>
+          </div>
+          <div>
+            <span v-if="bio === null">🥳 Birthday : 未设置</span>
+            <span v-else>🥳 Birthday : {{ birthday }}</span>
+          </div>
         </q-card-section>
-        <q-btn round icon="arrow_forward" class="custom-btn" flat @click="handleButtonClick" />
       </q-card>
       <q-separator inset />
       <q-card-section>
@@ -66,7 +70,9 @@
       </q-card-section>
       <q-separator inset />
       <q-card-section>
-        <q-btn flat class="full-width no-border" @click="newChatroomDialogVisible = true">新建聊天室</q-btn>
+        <q-btn flat class="full-width no-border" @click="newChatroomDialogVisible = true">💬 新建聊天室</q-btn>
+        <q-btn flat class="full-width no-border" @click="gotoAccountInfo">👋 个人资料</q-btn>
+        <q-btn flat class="full-width no-border" @click="toggleDrawer">⬅️ 关闭</q-btn>
       </q-card-section>
     </q-drawer>
 
@@ -74,7 +80,7 @@
     <q-dialog v-model="newChatroomDialogVisible" persistent>
       <q-card style="width: 400px;">
         <q-card-section>
-          <div class="text-h6">新建聊天室</div>
+          <div class="text-h6">💬 新建聊天室</div>
         </q-card-section>
 
         <q-card-section>
@@ -87,18 +93,6 @@
         </q-card-actions>
       </q-card>
     </q-dialog>
-
-    <q-drawer v-model="leftDrawerOpen_2" side="left" style="width: 25vw;" bordered>
-      <q-list separator bordened>
-        <q-item-label class="text-h6" style="padding: 10px;">Chatrooms</q-item-label>
-        <q-separator />
-        <q-item v-for="chatroom in chatrooms" :key="chatroom.id" clickable @click="switchChatRoom(chatroom.name)">
-          <q-item-section :class="chatroom.name === current_chatroom ? 'text-primary' : ''">
-            {{ chatroom.name }}
-          </q-item-section>
-        </q-item>
-      </q-list>
-    </q-drawer>
 
     <div class="chat-container">
       <q-chat-message v-for="msg in messages" :key="msg.name" :sent="msg.name === name" :text="[msg.message]"
@@ -132,7 +126,7 @@ export default {
     return {
       messages: [],
       message: '',
-      name: '', Id: '', avatar_url: '', bio: '未设置', birthday: '未设置',
+      name: '', Id: '', avatar_url: '', bio: '', birthday: '',
       ws: null,
       isConnected: false,
       currentTime: '',
@@ -192,6 +186,7 @@ export default {
     };
 
     this.fetchChatrooms();
+    this.fetchAccountInfo();
 
     setInterval(this.updateTime, 1000);
 
@@ -354,33 +349,25 @@ export default {
           position: 'top'
         });
       } else {
-        // 在这里添加创建聊天室的逻辑
         console.log('创建聊天室: ', this.newChatroomName);
         this.newChatroomDialogVisible = false;
-        // 在这里添加创建聊天室的逻辑
-        console.log('创建聊天室: ', this.newChatroomName);
-
-        // 发送请求到后端 API
         fetch('http://localhost:3000/api/CreateChatRoom', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            Id: this.Id,  
-            name: this.name, 
+            Id: this.Id,
+            name: this.name,
             NewChatroomName: this.newChatroomName
           })
         })
           .then((response) => {
-            console.log('服务器响应状态:', response.status); 
-            return response.text().then((text) => {
-              console.log('服务器返回的文本:', text); 
               if (!response.ok) {
-                throw new Error('请求失败，状态码：' + response.status);
+                return response.json().then(error => {
+                  throw new Error(error.error);
+                });
               }
-              return text ? JSON.parse(text) : {};
-            });
           })
           .then((data) => {
             console.log('聊天室创建成功:', data);
@@ -392,16 +379,42 @@ export default {
             this.newChatroomDialogVisible = false;
             this.fetchChatrooms();
           })
-          .catch((error) => {
+          .catch(error => {
             // 处理错误响应
-            console.error('创建聊天室失败:', error);
             this.$q.notify({
               type: 'negative',
-              message: '创建聊天室失败，请重试',
+              message: error.message,
               position: 'top'
             });
           });
       }
+    },
+    fetchAccountInfo() {
+      const url = `http://localhost:3000/api/accountInfo?id=${this.Id}`;
+      fetch(url)
+        .then(response => {
+          if (!response.ok) {
+            return Promise.reject('请求失败，状态码：' + response.status);
+          }
+          return response.json();
+        })
+        .then(data => {
+          console.log('用户信息:', data);
+          this.bio = data.bio;
+          this.birthday = data.birthday;
+        })
+        .catch(error => {
+          console.error('请求失败:', error);
+          this.$q.notify({
+            type: 'negative',
+            message: '请求失败：' + error,
+            position: 'top',
+            timeout: 3000
+          });
+        });
+    },
+    gotoAccountInfo() {
+      this.$router.push({ path: '/AccountInfo', query: { id: this.Id } });
     }
   }
 };

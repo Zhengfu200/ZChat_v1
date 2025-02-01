@@ -7,6 +7,7 @@ const bodyParser = require('body-parser');
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const fs = require('fs');
+const { accountInfo } = require('./js/accountinfo')
 
 //聊天室管理数据库
 const chatroomsDb = new sqlite3.Database('./Chatrooms.db');
@@ -17,7 +18,7 @@ chatroomsDb.serialize(() => {
 //用户管理数据库
 const user_db = new sqlite3.Database('./users.db');
 user_db.serialize(() => {
-  user_db.run("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, username TEXT, password TEXT, avatar TEXT)");
+  user_db.run("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, username TEXT, password TEXT, avatar TEXT,bio TEXT,birthday TEXT,gender TEXT,AboutMe TEXT, banner TEXT)");
 });
 
 const app = express();
@@ -379,6 +380,7 @@ app.post('/api/verifyChatroomOwner', (req, res) => {
   })
 })
 
+//创建聊天室
 app.post('/api/CreateChatRoom', (req, res) => {
   const { Id, name, NewChatroomName } = req.body;
 
@@ -443,8 +445,12 @@ app.post('/api/CreateChatRoom', (req, res) => {
               `;
             chatroomsDb.run(insertChatroom, [NewChatroomName, name, Id, dbPath_relative], (err) => {
               if (err) {
-                console.error('Error inserting into chatrooms:', err);
-                return res.status(500).json({ error: 'Failed to insert into chatrooms' });
+                if (err.code === 'SQLITE_CONSTRAINT_UNIQUE') {
+                  return res.status(400).json({ error: 'Chatroom name already exists' });
+                }else{
+                  console.error('Error inserting into chatrooms:', err);
+                  return res.status(500).json({ error: 'Failed to insert into chatrooms' });
+                }
               }
               res.json({ message: 'Chatroom created successfully', dbPath: dbPath });
             });
@@ -455,6 +461,7 @@ app.post('/api/CreateChatRoom', (req, res) => {
   })
 })
 
+app.get('/api/accountInfo', accountInfo);
 //转化时间戳格式
 function formatTimestampToReadableTime(isoTime) {
   const date = new Date(isoTime);

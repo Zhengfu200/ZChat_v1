@@ -1,5 +1,3 @@
 backend/node_modules
 frontend/chat-app/node_modules
-backend/users.db
-backend/Chatrooms.db
 backend/messages
