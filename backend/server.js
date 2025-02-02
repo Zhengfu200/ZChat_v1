@@ -8,6 +8,7 @@ const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const fs = require('fs');
 const { accountInfo } = require('./js/accountinfo')
+const { editAccount } = require('./js/editAccount');
 
 //聊天室管理数据库
 const chatroomsDb = new sqlite3.Database('./Chatrooms.db');
@@ -477,7 +478,12 @@ app.post('/api/CreateChatRoom', (req, res) => {
   })
 })
 
+//获取用户详情
 app.get('/api/accountInfo', accountInfo);
+
+//编辑用户信息
+app.post('/api/editAccount', editAccount);
+
 //转化时间戳格式
 function formatTimestampToReadableTime(isoTime) {
   const date = new Date(isoTime);

@@ -24,52 +24,59 @@
         </q-card>
 
         <q-card style="margin-top: 100px; width: 80vw; justify-self: center;">
-            <q-card-section  style="position: relative;">
+            <q-card-section style="position: relative;">
                 <span style="font-weight: bold;font-size: 1.0rem;">🤗 Name: </span>
                 <span>{{ name }}</span>
-                <q-btn icon="edit"  size="13px" color="primary" @click="editName"  round style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%);"/>
+                <q-btn icon="edit" size="13px" color="primary" @click="editName" round
+                    style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%);" />
             </q-card-section>
             <q-separator inset />
             <q-card-section>
                 <span style="font-weight: bold;font-size: 1.0rem;">😶 Gender: </span>
                 <span v-if="gender">{{ gender }}</span>
                 <span v-else>未设置</span>
-                <q-btn icon="edit"  size="13px" color="secondary" @click="editGender"  round style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%);"/>
+                <q-btn icon="edit" size="13px" color="secondary" @click="editgender" round
+                    style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%);" />
             </q-card-section>
             <q-separator inset />
             <q-card-section>
                 <span style="font-weight: bold;font-size: 1.0rem;">🎂 Birthday: </span>
                 <span v-if="birthday">{{ birthday }}</span>
                 <span v-else>未设置</span>
-                <q-btn icon="edit"  size="13px" color="amber" @click="editBirthday"  round style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%);"/>
+                <q-btn icon="edit" size="13px" color="amber" @click="editBirthday" round
+                    style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%);" />
             </q-card-section>
             <q-separator inset />
             <q-card-section>
                 <span style="font-weight: bold;font-size: 1.0rem;">🤣 Bio: </span>
                 <span v-if="bio">{{ bio }}</span>
                 <span v-else>未设置</span>
-                <q-btn icon="edit"  size="13px" color="brown-5" @click="editBio"  round style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%);"/>
+                <q-btn icon="edit" size="13px" color="brown-5" @click="editBio" round
+                    style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%);" />
             </q-card-section>
             <q-separator inset />
             <q-card-section>
                 <span style="font-weight: bold;font-size: 1.0rem;">🖼️ Avatar: </span>
                 <a v-if="avatar" :href="avatar" target="_blank">{{ avatar }}</a>
                 <span v-else>未设置</span>
-                <q-btn icon="edit"  size="13px" color="purple" @click="editAvatar"  round style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%);"/>
+                <q-btn icon="edit" size="13px" color="purple" @click="editAvatar" round
+                    style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%);" />
             </q-card-section>
             <q-separator inset />
             <q-card-section>
                 <span style="font-weight: bold;font-size: 1.0rem;">🖼️ Banner: </span>
                 <a v-if="banner" :href="banner" target="_blank">{{ banner }}</a>
                 <span v-else>未设置</span>
-                <q-btn icon="edit"  size="13px" color="black" @click="editBanner"  round style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%);"/>
+                <q-btn icon="edit" size="13px" color="black" @click="editBanner" round
+                    style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%);" />
             </q-card-section>
         </q-card>
 
         <q-card style="margin-top: 20px; width: 80vw; justify-self: center;">
             <q-card-section>
                 <div class="text-h6">👋 About Me:</div>
-                <q-btn icon="edit"  size="13px" color="indigo" @click="editBanner"  round style="position: absolute; right: 10px; top: 10px; "/>
+                <q-btn icon="edit" size="13px" color="indigo" @click="editAboutMe" round
+                    style="position: absolute; right: 10px; top: 10px; " />
                 <div style="margin-top: 10px;">
                     <div v-if="AboutMe">
                         <q-markdown :src="markdownContent" />
@@ -78,6 +85,23 @@
                 </div>
             </q-card-section>
         </q-card>
+
+        <q-dialog v-model="showEditSection_1">
+            <q-card style="width: 400px;">
+                <q-card-section>
+                    <div class="text-h6">edit:</div>
+                </q-card-section>
+
+                <q-card-section>
+                    <q-input v-model="edit" label="请输入编辑的内容" filled />
+                </q-card-section>
+
+                <q-card-actions align="right">
+                    <q-btn flat label="取消" color="negative" @click="changeEditSection_1" />
+                    <q-btn flat label="确认" color="primary" @click="uploadEdit" />
+                </q-card-actions>
+            </q-card>
+        </q-dialog>
     </div>
 </template>
 <script>
@@ -88,6 +112,8 @@ export default {
     },
     data() {
         return {
+            token: '',
+            birthday: '',
             Id: "",
             name: "",
             avatar: "",
@@ -97,10 +123,12 @@ export default {
             AboutMe: "",
             markdownContent: "",
             editsection: '',
-            edit_name:'',edit_avatar:'',edit_gender:'',edit_bio:'',edit_banner:'',
+            edit:'',
+            showEditSection_1: false,
         }
     },
     mounted() {
+        this.token = localStorage.getItem('token');
         this.Id = this.$route.query.id;
         this.fetchAccountInfo();
     },
@@ -123,7 +151,6 @@ export default {
                     this.birthday = data.birthday;
                     this.banner = data.banner;
                     this.AboutMe = data.AboutMe;
-
                     this.fetchMarkdown();
                 })
                 .catch(error => {
@@ -161,33 +188,84 @@ export default {
                     });
                 });
         },
-        edit(){
-            if(this.editsection == null){
-                this.$q.notify({
-                    type: 'negative',
-                    message: '请选择要编辑的内容',
-                    position: 'top', 
-                })
-            }else{
-                this.$q.notify({
-                    type: 'positive',
-                    message: 'nice',
-                    position: 'top', 
-                })
-            }
+        changeEditSection_1() {
+            this.showEditSection_1 = !this.showEditSection_1;
         },
-        editName(){
-            this.editsection = 'name';
-            this.$q.dialog({
-                title: '修改用户名',
-                message: '请输入新的用户名',
-                prompt: {
-                    model: this.edit_name,
-                    type: 'text',
+        editName() {
+            this.editsection = "name";
+            this.showEditSection_1 = !this.showEditSection_1;
+        },
+        editgender(){
+            this.editsection = "gender";
+            this.showEditSection_1 = !this.showEditSection_1;
+        },
+        editBirthday(){
+            this.editsection = "birthday";
+            this.showEditSection_1 = !this.showEditSection_1;
+        },
+        editBio() {
+            this.editsection = "Bio";
+            this.showEditSection_1 = !this.showEditSection_1;
+        },
+        editAvatar() {
+            this.editsection = "Avatar";
+            this.showEditSection_1 = !this.showEditSection_1;
+        },
+        editBanner() {
+            this.editsection = "Banner";
+            this.showEditSection_1 = !this.showEditSection_1;
+        },
+        editAboutMe() {
+            this.editsection = "AboutMe";
+            this.showEditSection_1 = !this.showEditSection_1;
+        },
+        uploadEdit(){
+            const requestBody = {
+                token: this.token,
+                Id: this.Id,
+                editsection: this.editsection,
+                edit: this.edit,
+            }
+
+            this.update(requestBody);
+        },
+        update(requestBody){
+            const queryParams = new URLSearchParams(requestBody).toString();
+
+            fetch(`http://localhost:3000/api/editAccount?${queryParams}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
                 },
-                cancel: true,
-                persistent: true,
+                body: JSON.stringify(requestBody),
             })
+                .then(response => {
+                    if (!response.ok) {
+                        return response.json().then(error => {
+                            throw new Error(error.message);
+                        });
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('用户名更新成功:', data);
+                    this.$q.notify({
+                        type: 'positive',
+                        message: '更新成功',
+                        position: 'top',
+                        timeout: 3000
+                    });
+                    this.fetchAccountInfo();
+                })
+                .catch(error => {
+                    console.error('请求失败:', error);
+                    this.$q.notify({
+                        type: 'negative',
+                        message: '请求失败：' + error.message,
+                        position: 'top',
+                        timeout: 3000
+                    });
+                });
         }
     },
 
