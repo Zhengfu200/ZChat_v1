@@ -60,8 +60,9 @@
         <q-expansion-item expand-separator icon="chat" label="Chatrooms  " caption="点击展开聊天室">
           <q-list separator bordened>
             <q-separator />
-            <q-item v-for="chatroom in chatrooms" :key="chatroom.id" clickable @click="switchChatRoom(chatroom.name)">
-              <q-item-section :class="chatroom.name === current_chatroom ? 'text-primary' : ''">
+            <q-item v-for="chatroom in chatrooms" :key="chatroom.id" clickable
+              @click="switchChatRoom(chatroom.id)">
+              <q-item-section :class="chatroom.id === current_chatroom_id ? 'text-primary' : ''">
                 {{ chatroom.name }}
               </q-item-section>
             </q-item>
@@ -131,7 +132,7 @@ export default {
       isConnected: false,
       currentTime: '',
       leftDrawerOpen_1: false, leftDrawerOpen_2: false, newChatroomDialogVisible: false,
-      current_chatroom: '',
+      current_chatroom: '', current_chatroom_id: '1',
       chatrooms: [],
       showDetails: false,
       current_chatroom_owner: '',
@@ -192,28 +193,32 @@ export default {
 
   },
   methods: {
+    async fetchAllChatrooms(){
+      fetch("http://localhost:3000/api/all_chatrooms")
+       .then(response => response.json())
+       .then(data => {
+          this.chatrooms = data.chatrooms;
+        })
+       .catch(err => {
+          console.error("Error fetching chatrooms:", err);
+        });
+    },
     async fetchChatrooms() {
-      fetch('http://localhost:3000/api/chatrooms')
+      fetch(`http://localhost:3000/api/chatrooms?chatroom_id=${this.current_chatroom_id}`)
         .then(response => response.json())
         .then(data => {
-          this.chatrooms = data.chatrooms; // 获取聊天室列表
-          if (this.chatrooms.length > 0) {
-            this.current_chatroom = this.chatrooms[0].name;
-            this.current_chatroom_owner = this.chatrooms[0].owner;
-            this.fetchMessages();
-          }
+          this.current_chatroom_id = data.chatrooms.id;
+          this.current_chatroom = data.chatrooms.name;
+          this.current_chatroom_owner = data.chatrooms.owner;
+          this.fetchMessages();
         })
         .catch(err => {
           console.error("Error fetching chatrooms:", err);
         });
     },
     async fetchMessages() {
-      console.log(this.current_chatroom);
-      const chatroom = this.chatrooms.find(c => c.name === this.current_chatroom);
-      if (chatroom) {
-        this.current_chatroom_owner = chatroom.owner;
-      }
-      fetch(`http://localhost:3000/api/chatroomBadges?chatroom=${this.current_chatroom}`)
+
+      fetch(`http://localhost:3000/api/chatroomBadges?chatroom_id=${this.current_chatroom_id}`)
         .then(response => response.json())
         .then(data => {
           this.all_badges = data.badges
@@ -222,7 +227,7 @@ export default {
         .catch(err => {
           console.error("Error fetching chatroom badges:", err);
         });
-      fetch(`http://localhost:3000/api/messages?chatroom=${this.current_chatroom}`)
+      fetch(`http://localhost:3000/api/messages?chatroom_id=${this.current_chatroom_id}`)
         .then(response => response.json())
         .then(data => {
           this.messages = data.messages;
@@ -236,30 +241,32 @@ export default {
         const currentTime = new Date().toISOString();
         const msg = { chatroom: this.current_chatroom, Id: this.Id, name: this.name, avatar: this.avatar_url, message: this.message, currentTime: currentTime };
         this.ws.send(JSON.stringify(msg));
-        this.message = ''; // 清空输入框
+        this.message = ''; 
       } else {
         console.log("WebSocket is not connected");
       }
     },
     updateTime() {
       const now = new Date();
-      this.currentTime = now.toLocaleTimeString(); // 获取当前时间
+      this.currentTime = now.toLocaleTimeString(); 
     },
     gotoLogin() {
       this.$router.push('/login');
     },
     toggleDrawer() {
-      this.leftDrawerOpen_1 = !this.leftDrawerOpen_1; // 切换侧边栏状态
+      this.fetchAllChatrooms();
+      this.leftDrawerOpen_1 = !this.leftDrawerOpen_1; 
     },
-    switchChatRoom(chatroomName) {
-      this.current_chatroom = chatroomName;
-      this.fetchMessages();
+    switchChatRoom(chatroomId) {
+      this.current_chatroom_id = chatroomId;
+      this.fetchChatrooms();
     },
     toggleDetails() {
-      this.showDetails = !this.showDetails; // 切换展开区域的显示状态
+      this.showDetails = !this.showDetails;
     },
     goToServerModerator() {
       const token = localStorage.getItem('token');
+      console.log(this.current_chatroom_id);
       if (!token) {
         this.$q.notify({
           color: 'negative',
@@ -276,7 +283,7 @@ export default {
           'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
-          chatroom: this.current_chatroom
+          chatroom_id: this.current_chatroom_id,
         })
       })
         .then(response => {
@@ -303,16 +310,15 @@ export default {
         })
         .then(data => {
           if (data.isOwner) {
-            // 如果是 owner，跳转到 moderator 页面
             this.$router.push({
               name: 'server-moderator',
               query: {
+                chatroom_id: this.current_chatroom_id,
                 chatroom: this.current_chatroom,
                 owner: this.current_chatroom_owner
               }
             });
           } else {
-            // 弹出提示
             this.$q.notify({
               color: 'negative',
               message: 'You are not the owner of this chatroom!',
@@ -363,11 +369,11 @@ export default {
           })
         })
           .then((response) => {
-              if (!response.ok) {
-                return response.json().then(error => {
-                  throw new Error(error.error);
-                });
-              }
+            if (!response.ok) {
+              return response.json().then(error => {
+                throw new Error(error.error);
+              });
+            }
           })
           .then((data) => {
             console.log('聊天室创建成功:', data);

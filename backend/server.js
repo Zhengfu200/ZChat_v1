@@ -31,11 +31,29 @@ app.use(bodyParser.json());
 
 const JWT_SECRET = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6Ind3dy5ranNvbi5jb20iLCJzdWIiOiJkZW1vIiwiaWF0IjoxNzM3OTczOTMyLCJuYmYiOjE3Mzc5NzM5MzIsImV4cCI6MTczODA2MDMzMn0.T7gBlg6XwSLWMx5vwXihH3B1q7B8SyJohhrTdXOtGBw';
 
-// 获取所有聊天室的名称
-app.get('/api/chatrooms', (req, res) => {
+//获取所有聊天室
+app.get('/api/all_chatrooms', (req,res) => {
   chatroomsDb.all("SELECT * FROM chatrooms", (err, rows) => {
     if (err) {
+      res.status(500).json({ error: err.message });
+      return;
+    }
+    res.json({ chatrooms: rows });
+  });
+});
+
+// 获取当前聊天室的信息
+app.get('/api/chatrooms', (req, res) => {
+  const chatroom_id = req.query.chatroom_id;
+  if (!chatroom_id) {
+    return res.status(400).json({ error: 'Chatroom Id is required' });
+  }
+  chatroomsDb.get("SELECT * FROM chatrooms WHERE id = ?", [chatroom_id], (err, rows) => {
+    if (err) {
       return res.status(500).json({ error: err.message });
+    }
+    if (!rows) {
+      return res.status(404).json({ error: '找不到匹配的聊天室' });
     }
     res.json({ chatrooms: rows });
   });
@@ -90,12 +108,12 @@ app.post('/register', (req, res) => {
 
 // 获取历史消息（1.历史消息）
 app.get('/api/messages', (req, res) => {
-  const chatroom = req.query.chatroom;
-  if (!chatroom) {
-    return res.status(400).json({ error: 'Chatroom name is required' });
+  const chatroom_id = req.query.chatroom_id;
+  if (!chatroom_id) {
+    return res.status(400).json({ error: 'Chatroom Id is required' });
   }
 
-  chatroomsDb.get("SELECT * FROM chatrooms WHERE name = ?", [chatroom], (err, row) => {
+  chatroomsDb.get("SELECT * FROM chatrooms WHERE id = ?", [chatroom_id], (err, row) => {
     if (err) {
       return res.status(500).json({ error: '查询聊天室信息失败' });
     }
@@ -123,12 +141,12 @@ app.get('/api/messages', (req, res) => {
 
 //获取历史消息(2.聊天室徽章)
 app.get('/api/chatroomBadges', (req, res) => {
-  const chatroom = req.query.chatroom;
-  if (!chatroom) {
-    return res.status(400).json({ error: 'Chatroom name is required' });
+  const chatroom_id = req.query.chatroom_id;
+  if (!chatroom_id) {
+    return res.status(400).json({ error: 'Chatroom Id is required' });
   }
 
-  chatroomsDb.get("SELECT * FROM chatrooms WHERE name = ?", [chatroom], (err, row) => {
+  chatroomsDb.get("SELECT * FROM chatrooms WHERE id = ?", [chatroom_id], (err, row) => {
     if (err) {
       return res.status(500).json({ error: '查询聊天室信息失败' });
     }
@@ -245,7 +263,7 @@ wss.on('connection', (ws) => {
 // 修改聊天室信息(1.基本信息）
 app.post('/api/mod', (req, res) => {
   const token = req.headers.authorization?.split(' ')[1];
-  const { chatroom_previous, owner_previous, chatroom_modified, owner_modified } = req.body;
+  const { chatroom_id,chatroom_previous, owner_previous, chatroom_modified, owner_modified } = req.body;
   if (!token) {
     return res.status(401).json({ success: false, message: 'Token is required' });
   }
@@ -257,7 +275,7 @@ app.post('/api/mod', (req, res) => {
     }
     const userId = decoded.userId;
 
-    chatroomsDb.get("SELECT * FROM chatrooms WHERE name = ?", [chatroom_previous], (err, row) => {
+    chatroomsDb.get("SELECT * FROM chatrooms WHERE id = ?", [chatroom_id], (err, row) => {
       if (err) {
         return res.status(500).json({ error: '查询聊天室信息失败' });
       }
@@ -265,14 +283,13 @@ app.post('/api/mod', (req, res) => {
         return res.status(404).json({ error: '找不到匹配的聊天室' });
       }
       const dbPath = row.db_path
-      // 如果数据库文件不存在，返回错误
       if (!fs.existsSync(dbPath)) {
         return res.status(404).json({ error: 'Chatroom not found' });
       }
 
       const messages_db = new sqlite3.Database(dbPath);
 
-      chatroomsDb.get("SELECT owner_id FROM chatrooms WHERE name = ?", [chatroom_previous], (err, row) => {
+      chatroomsDb.get("SELECT owner_id FROM chatrooms WHERE id = ?", [chatroom_id], (err, row) => {
         if (err) {
           return res.status(500).json({ success: false, message: 'Database error' });
         }
@@ -300,8 +317,7 @@ app.post('/api/mod', (req, res) => {
               if (!row) {
                 return res.status(400).json({ error: '找不到匹配的聊天室' });
               }
-
-              // 更新聊天室信息
+              
               chatroomsDb.run("UPDATE chatrooms SET name = ?, owner = ?, owner_id = ? WHERE name = ? AND owner = ? AND owner_id = ?",
                 [chatroom_modified, owner_modified, owner_modified_id, chatroom_previous, owner_previous, owner_previous_id], (err) => {
                   messages_db.get("SELECT * FROM badges", (err, badgeRow) => {
@@ -350,7 +366,7 @@ app.post('/api/mod', (req, res) => {
 // 跳转后台验证
 app.post('/api/verifyChatroomOwner', (req, res) => {
   const token = req.headers.authorization?.split(' ')[1];
-  const { chatroom } = req.body;
+  const { chatroom_id } = req.body;
 
   if (!token) {
     return res.status(401).json({ success: false, message: 'Token is required' });
@@ -362,7 +378,7 @@ app.post('/api/verifyChatroomOwner', (req, res) => {
       return res.status(402).json({ success: false, message: 'Token is invalid' });
     }
     const userId = decoded.userId;
-    chatroomsDb.get("SELECT owner_id FROM chatrooms WHERE name = ?", [chatroom], (err, row) => {
+    chatroomsDb.get("SELECT owner_id FROM chatrooms WHERE id = ?", [chatroom_id], (err, row) => {
       if (err) {
         return res.status(500).json({ success: false, message: 'Database error' });
       }

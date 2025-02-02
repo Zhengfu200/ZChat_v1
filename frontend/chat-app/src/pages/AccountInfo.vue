@@ -24,45 +24,52 @@
         </q-card>
 
         <q-card style="margin-top: 100px; width: 80vw; justify-self: center;">
-            <q-card-section>
+            <q-card-section  style="position: relative;">
                 <span style="font-weight: bold;font-size: 1.0rem;">🤗 Name: </span>
                 <span>{{ name }}</span>
+                <q-btn icon="edit"  size="13px" color="primary" @click="editName"  round style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%);"/>
             </q-card-section>
             <q-separator inset />
             <q-card-section>
                 <span style="font-weight: bold;font-size: 1.0rem;">😶 Gender: </span>
                 <span v-if="gender">{{ gender }}</span>
                 <span v-else>未设置</span>
+                <q-btn icon="edit"  size="13px" color="secondary" @click="editGender"  round style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%);"/>
             </q-card-section>
             <q-separator inset />
             <q-card-section>
                 <span style="font-weight: bold;font-size: 1.0rem;">🎂 Birthday: </span>
                 <span v-if="birthday">{{ birthday }}</span>
                 <span v-else>未设置</span>
+                <q-btn icon="edit"  size="13px" color="amber" @click="editBirthday"  round style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%);"/>
             </q-card-section>
             <q-separator inset />
             <q-card-section>
                 <span style="font-weight: bold;font-size: 1.0rem;">🤣 Bio: </span>
                 <span v-if="bio">{{ bio }}</span>
                 <span v-else>未设置</span>
+                <q-btn icon="edit"  size="13px" color="brown-5" @click="editBio"  round style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%);"/>
             </q-card-section>
             <q-separator inset />
             <q-card-section>
                 <span style="font-weight: bold;font-size: 1.0rem;">🖼️ Avatar: </span>
                 <a v-if="avatar" :href="avatar" target="_blank">{{ avatar }}</a>
                 <span v-else>未设置</span>
+                <q-btn icon="edit"  size="13px" color="purple" @click="editAvatar"  round style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%);"/>
             </q-card-section>
             <q-separator inset />
             <q-card-section>
                 <span style="font-weight: bold;font-size: 1.0rem;">🖼️ Banner: </span>
                 <a v-if="banner" :href="banner" target="_blank">{{ banner }}</a>
                 <span v-else>未设置</span>
+                <q-btn icon="edit"  size="13px" color="black" @click="editBanner"  round style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%);"/>
             </q-card-section>
         </q-card>
 
         <q-card style="margin-top: 20px; width: 80vw; justify-self: center;">
             <q-card-section>
                 <div class="text-h6">👋 About Me:</div>
+                <q-btn icon="edit"  size="13px" color="indigo" @click="editBanner"  round style="position: absolute; right: 10px; top: 10px; "/>
                 <div style="margin-top: 10px;">
                     <div v-if="AboutMe">
                         <q-markdown :src="markdownContent" />
@@ -89,6 +96,8 @@ export default {
             banner: "",
             AboutMe: "",
             markdownContent: "",
+            editsection: '',
+            edit_name:'',edit_avatar:'',edit_gender:'',edit_bio:'',edit_banner:'',
         }
     },
     mounted() {
@@ -151,6 +160,34 @@ export default {
                         timeout: 3000
                     });
                 });
+        },
+        edit(){
+            if(this.editsection == null){
+                this.$q.notify({
+                    type: 'negative',
+                    message: '请选择要编辑的内容',
+                    position: 'top', 
+                })
+            }else{
+                this.$q.notify({
+                    type: 'positive',
+                    message: 'nice',
+                    position: 'top', 
+                })
+            }
+        },
+        editName(){
+            this.editsection = 'name';
+            this.$q.dialog({
+                title: '修改用户名',
+                message: '请输入新的用户名',
+                prompt: {
+                    model: this.edit_name,
+                    type: 'text',
+                },
+                cancel: true,
+                persistent: true,
+            })
         }
     },
 

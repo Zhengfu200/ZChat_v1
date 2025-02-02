@@ -13,9 +13,9 @@
 
 
 
-import {QPage,QInput,QBtn,QAvatar,QCard,QCardSection,Notify,Dark} from 'quasar'
+import {QPage,QInput,QBtn,QAvatar,QCard,QCardSection,Notify,Dialog,Dark} from 'quasar'
 
 
 
-export default { config: {},components: {QPage,QInput,QBtn,QAvatar,QCard,QCardSection},plugins: {Notify,Dark} }
+export default { config: {},components: {QPage,QInput,QBtn,QAvatar,QCard,QCardSection},plugins: {Notify,Dialog,Dark} }
 

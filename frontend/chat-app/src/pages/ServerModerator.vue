@@ -29,6 +29,7 @@
 export default {
     data() {
         return {
+            chatroom_id: '',
             chatroom_previous: '',
             owner_previous: '',
             chatroom_modified: '',
@@ -36,7 +37,7 @@ export default {
         };
     },
     mounted() {
-        // 获取路由传递的参数
+        this.chatroom_id = this.$route.query.chatroom_id;
         this.chatroom_previous = this.$route.query.chatroom;
         this.owner_previous = this.$route.query.owner;
         this.chatroom_modified = this.chatroom_previous;
@@ -58,6 +59,7 @@ export default {
                 this.owner_modified = this.owner_previous;
             }
             const payload = {
+                chatroom_id: this.chatroom_id,
                 chatroom_previous: this.chatroom_previous,
                 owner_previous: this.owner_previous,
                 chatroom_modified: this.chatroom_modified,
