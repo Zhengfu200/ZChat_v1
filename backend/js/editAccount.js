@@ -19,7 +19,7 @@ const editAccount = (req, res) => {
     jwt.verify(token, JWT_SECRET, (err, decoded) => {
         if (err) {
           console.log('Token is invalid');
-          return res.status(402).json({ success: false, message: 'Token is invalid,Please try to login again' });
+          return res.status(402).json({ success: false, message: 'Token is invalid,Please try to login again(请尝试重新登录!)' });
         }
         const userId = decoded.userId;
         if (userId != Id) {
@@ -36,19 +36,6 @@ const editAccount = (req, res) => {
                 }
                 if (!editsection) {
                     return res.status(401).json({ success: false, message: '未指定修改位置' });
-                }
-                if(editsection == 'name'){
-                    const edit = req.query.edit;
-                    if(!edit){
-                        return res.status(401).json({ success: false, message: '未指定修改内容' }); 
-                    }
-                    user_db.run('UPDATE users SET username = ? WHERE id = ?', [edit, Id], (err) => {
-                        if (err) {
-                            console.log(err);
-                            return res.status(500).json({ success: false, message: 'Failed to update' });
-                        }
-                        return res.status(200).json({ success: true, message: 'updated successfully' });
-                    });
                 }
                 if(editsection == 'Bio'){
                     const edit = req.query.edit;
@@ -109,6 +96,9 @@ const editAccount = (req, res) => {
                         }
                         return res.status(200).json({ success: true, message: ' updated successfully' });
                     });
+                }
+                else{
+                    return res.status(401).json({ success: false, message: '未指定修改位置,请重新尝试！' });
                 }
             })
         }

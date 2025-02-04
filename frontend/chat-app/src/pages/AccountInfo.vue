@@ -27,8 +27,6 @@
             <q-card-section style="position: relative;">
                 <span style="font-weight: bold;font-size: 1.0rem;">🤗 Name: </span>
                 <span>{{ name }}</span>
-                <q-btn icon="edit" size="13px" color="primary" @click="editName" round
-                    style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%);" />
             </q-card-section>
             <q-separator inset />
             <q-card-section>
@@ -189,10 +187,6 @@ export default {
                 });
         },
         changeEditSection_1() {
-            this.showEditSection_1 = !this.showEditSection_1;
-        },
-        editName() {
-            this.editsection = "name";
             this.showEditSection_1 = !this.showEditSection_1;
         },
         editgender(){

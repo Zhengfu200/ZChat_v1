@@ -60,8 +60,7 @@
         <q-expansion-item expand-separator icon="chat" label="Chatrooms  " caption="点击展开聊天室">
           <q-list separator bordened>
             <q-separator />
-            <q-item v-for="chatroom in chatrooms" :key="chatroom.id" clickable
-              @click="switchChatRoom(chatroom.id)">
+            <q-item v-for="chatroom in chatrooms" :key="chatroom.id" clickable @click="switchChatRoom(chatroom.id)">
               <q-item-section :class="chatroom.id === current_chatroom_id ? 'text-primary' : ''">
                 {{ chatroom.name }}
               </q-item-section>
@@ -96,7 +95,7 @@
     </q-dialog>
 
     <div class="chat-container">
-      <q-chat-message v-for="msg in messages" :key="msg.name" :sent="msg.name === name" :text="[msg.message]"
+      <q-chat-message v-for="msg in messages" :key="msg.name" :sent="msg.name === name"   
         :name="null" name-html
         :avatar="msg.avatar_url ? msg.avatar_url : 'https://img.icons8.com/?size=100&id=YXG86oegZMMh&format=png&color=000000'"
         :stamp="msg.date">
@@ -108,12 +107,35 @@
           </div>
           <span v-html="`<span>${msg.name}</span>`"></span>
         </template>
+        <span v-if="msg.type == 1">{{ msg.message }}</span>
+        <q-img v-if="msg.type == 2" :src="msg.message" @click="openSourceInNewTab(msg.message)"/>
+        <q-video v-if="msg.type == 3" :src="msg.message" @click="openSourceInNewTab(msg.message)" />
       </q-chat-message>
     </div>
 
     <div class="chat-input-container">
-      <q-input v-model="message" label="Message" class="bottom-input" @keyup.enter="sendMessage" />
+      <q-input v-model="message" label="Message" class="bottom-input" @keyup.enter="sendMessage"
+        :placeholder="message_type == 1 ? '请输入内容' : message_type == 2 ? '请输入图片直链' : message_type == 3 ? '请输入视频直链' : ''">
+        <q-expansion-item v-model="expansionVisible" style="position: absolute; bottom: 5px; right: 10px;">
+          <q-card style="background-color: #ECF0F1;">
+            <q-card-section>
+              <q-list bordened vertical>
+                <q-item>
+                  <q-btn flat label="📝 文字" @click="editTypeText" />
+                </q-item>
+                <q-item>
+                  <q-btn flat label="📷 图片" @click="editTypePhoto" />
+                </q-item>
+                <q-item>
+                  <q-btn flat label="📹 视频" @click="editTypeVideo" />
+                </q-item>
+              </q-list>
+            </q-card-section>
+          </q-card>
+        </q-expansion-item>
+      </q-input>
       <q-btn round icon="navigation" class="send-btn" @click="sendMessage" />
+      <q-btn round icon="add" class="send-btn" @click="editType" />
     </div>
   </q-page>
 </template>
@@ -126,12 +148,12 @@ export default {
   data() {
     return {
       messages: [],
-      message: '',
+      message: '', message_type: '1',
       name: '', Id: '', avatar_url: '', bio: '', birthday: '',
       ws: null,
       isConnected: false,
       currentTime: '',
-      leftDrawerOpen_1: false, leftDrawerOpen_2: false, newChatroomDialogVisible: false,
+      leftDrawerOpen_1: false, newChatroomDialogVisible: false, expansionVisible: false,
       current_chatroom: '', current_chatroom_id: '1',
       chatrooms: [],
       showDetails: false,
@@ -193,13 +215,13 @@ export default {
 
   },
   methods: {
-    async fetchAllChatrooms(){
+    async fetchAllChatrooms() {
       fetch("http://localhost:3000/api/all_chatrooms")
-       .then(response => response.json())
-       .then(data => {
+        .then(response => response.json())
+        .then(data => {
           this.chatrooms = data.chatrooms;
         })
-       .catch(err => {
+        .catch(err => {
           console.error("Error fetching chatrooms:", err);
         });
     },
@@ -238,24 +260,24 @@ export default {
     },
     sendMessage() {
       if (this.isConnected && this.message && this.name) {
-        const currentTime = new Date().toISOString();
-        const msg = { chatroom: this.current_chatroom, Id: this.Id, name: this.name, avatar: this.avatar_url, message: this.message, currentTime: currentTime };
+        const currentTime = new Date().toLocaleTimeString();
+        const msg = { chatroom: this.current_chatroom, Id: this.Id, name: this.name, avatar: this.avatar_url, message: this.message, currentTime: currentTime, message_type: parseInt(this.message_type, 10) };
         this.ws.send(JSON.stringify(msg));
-        this.message = ''; 
+        this.message = '';
       } else {
         console.log("WebSocket is not connected");
       }
     },
     updateTime() {
       const now = new Date();
-      this.currentTime = now.toLocaleTimeString(); 
+      this.currentTime = now.toLocaleTimeString();
     },
     gotoLogin() {
       this.$router.push('/login');
     },
     toggleDrawer() {
       this.fetchAllChatrooms();
-      this.leftDrawerOpen_1 = !this.leftDrawerOpen_1; 
+      this.leftDrawerOpen_1 = !this.leftDrawerOpen_1;
     },
     switchChatRoom(chatroomId) {
       this.current_chatroom_id = chatroomId;
@@ -410,10 +432,10 @@ export default {
           this.birthday = data.birthday;
         })
         .catch(error => {
-          console.error('请求失败:', error);
+          console.error('请求失败，网络错误:', error);
           this.$q.notify({
             type: 'negative',
-            message: '请求失败：' + error,
+            message: '请求失败，网络错误：' + error,
             position: 'top',
             timeout: 3000
           });
@@ -421,6 +443,24 @@ export default {
     },
     gotoAccountInfo() {
       this.$router.push({ path: '/AccountInfo', query: { id: this.Id } });
+    },
+    editType() {
+      this.expansionVisible = !this.expansionVisible;
+    },
+    editTypeText() {
+      this.message_type = '1';
+      this.expansionVisible = !this.expansionVisible;
+    },
+    editTypePhoto() {
+      this.message_type = '2';
+      this.expansionVisible = !this.expansionVisible;
+    },
+    editTypeVideo() {
+      this.message_type = '3';
+      this.expansionVisible = !this.expansionVisible;
+    },
+    openSourceInNewTab(url){
+      window.open(url, '_blank');
     }
   }
 };
@@ -465,16 +505,10 @@ export default {
 .custom-btn {
   position: absolute;
   right: 10px;
-  /* 右侧边距 */
   top: 50%;
-  /* 垂直居中 */
   transform: translateY(-50%);
-  /* 垂直居中调整 */
   background-color: transparent;
-  /* 透明背景 */
   border: none;
-  /* 移除边框 */
   color: black;
-  /* 按钮图标颜色 */
 }
 </style>

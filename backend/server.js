@@ -183,9 +183,7 @@ const wss = new WebSocketServer({ noServer: true });
 wss.on('connection', (ws) => {
   console.log("WebSocket connection established");
   ws.on('message', (data) => {
-    const { chatroom, Id, name, message, avatar, currentTime } = JSON.parse(data);
-
-    const readable_currentTime = formatTimestampToReadableTime(currentTime);
+    const { chatroom, Id, name, message, avatar, currentTime, message_type } = JSON.parse(data);
 
     //从Chatrooms.db定位Chatroom,查找历史消息数据库所在路径
     chatroomsDb.get("SELECT * FROM chatrooms WHERE name = ?", [chatroom], (err, row) => {
@@ -239,13 +237,13 @@ wss.on('connection', (ws) => {
               }
             })
 
-            messages_db.run("INSERT INTO messages (name, message, avatar_url, date, badges) VALUES (?, ?, ?, ?, ?)", [name, message, avatar, readable_currentTime, JSON.stringify(badges)], function (err) {
+            messages_db.run("INSERT INTO messages (name, message, avatar_url, date, badges, type) VALUES (?, ?, ?, ?, ?, ?)", [name, message, avatar, currentTime, JSON.stringify(badges), message_type], function (err) {
               if (err) {
                 console.error(err);
               } else {
                 wss.clients.forEach((client) => {
                   if (client.readyState === ws.OPEN) {
-                    client.send(JSON.stringify({ name, message, avatar, readable_currentTime, badges }));
+                    client.send(JSON.stringify({ name, message, avatar, currentTime, badges, message_type }));
                   }
                 });
               }
@@ -484,16 +482,6 @@ app.get('/api/accountInfo', accountInfo);
 //编辑用户信息
 app.post('/api/editAccount', editAccount);
 
-//转化时间戳格式
-function formatTimestampToReadableTime(isoTime) {
-  const date = new Date(isoTime);
-  const month = String(date.getMonth() + 1).padStart(2, '0');  // 补齐为两位
-  const day = String(date.getDate()).padStart(2, '0');
-  const hours = String(date.getHours()).padStart(2, '0');
-  const minutes = String(date.getMinutes()).padStart(2, '0');
-
-  return `${month}-${day} ${hours}:${minutes}`;
-}
 
 // HTTP 升级为 WebSocket 连接
 server.on('upgrade', (req, socket, head) => {
