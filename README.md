@@ -1,6 +1,30 @@
-### ZChat: Build a Public Chatroom with Node.js + Vue3 + Quasar + sqlite3
+<div align=center><img src="https://img.icons8.com/?size=100&id=7859&format=png&color=000000"></div>
+
+## ZChat: Build a Public Chatroom with Node.js + Vue3 + Quasar + sqlite3    
+##### 项目[演示地址](https://zhengfu200.github.io/#/)(仅为2025/2/3日更新的版本，非本仓库最新版本)
+- 前端：![Static Badge](https://img.shields.io/badge/Vue-green)  ![Static Badge](https://img.shields.io/badge/Javascript-yellow)  ![Static Badge](https://img.shields.io/badge/Quasar-blue)
+- 后端：![Static Badge](https://img.shields.io/badge/Node.js-red)  ![Static Badge](https://img.shields.io/badge/Sqlite3-gray)    
+
+##### 📄TODO:
+
+- [x] ~~优化频道管理界面UI~~
+- [x] ~~增加发送消息时显示发送时间~~
+- [x] ~~实现图片和视频发送~~
+- [ ] 实现音频和文件发送（以及文件下载）
+- [ ] 增加聊天频道隐藏机制（可能不会在V1实现了）
+- [ ] 消除一些屎山    
+  
+##### 🤯Ideas:
+
+- [ ] 实现频道身份管理系统
+- [ ] 实现消息回复，撤回机制
+
+##### 🪲已知bug:    
+ ~~1.新发布的消息聊天头像不显示（已解决）~~     
+2.q-video的src如果被设置成任意文字，则会显示错误（将通过画中画形式将整个网页显示在视频组件里）
 
 #### 2025/2/4:
+##### 🎉 重大更新：ZChat支持图片和视频上传并直链显示了（也可以做一个图床了）
 ##### 🙂前端：
 * 修复了时间显示错误的bug
 * 探索了Quasar的新特性：在q-message中发送图片消息
@@ -10,6 +34,8 @@
 ##### 🙃后端:
 * 支持发送图片和视频链接
 
+#### 2025/2/3:
+##### 将截至2025/2/3日前更新的所有内容放在[我的Github主页](https://zhengfu200.github.io/#/)上
 
 #### 2025/2/2：
 ##### 🙂前端：
@@ -73,18 +99,3 @@
 * 搭建主体读取，发送信息接口
 * 建立用户管理数据库，登录和注册接口
 * 建立聊天室数据库    
-
-##### 📄TODO:
-
-- [x] ~~优化频道管理界面UI~~
-- [x] ~~增加发送消息时显示发送时间~~
-- [ ] 增加聊天频道隐藏机制
-- [ ] 消除一些屎山    
-  
-##### 🤯Ideas:
-
-- [ ] 实现频道身份管理系统
-- [ ] 实现消息回复，撤回机制
-
-##### 🪲已知bug:    
-<font color=red>*** ~~1.新发布的消息聊天头像不显示（已解决）~~ ***</font>
