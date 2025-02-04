@@ -95,8 +95,7 @@
     </q-dialog>
 
     <div class="chat-container">
-      <q-chat-message v-for="msg in messages" :key="msg.name" :sent="msg.name === name"   
-        :name="null" name-html
+      <q-chat-message v-for="msg in messages" :key="msg.name" :sent="msg.name === name" :name="null" name-html
         :avatar="msg.avatar_url ? msg.avatar_url : 'https://img.icons8.com/?size=100&id=YXG86oegZMMh&format=png&color=000000'"
         :stamp="msg.date">
         <template v-slot:name>
@@ -108,35 +107,35 @@
           <span v-html="`<span>${msg.name}</span>`"></span>
         </template>
         <span v-if="msg.type == 1">{{ msg.message }}</span>
-        <q-img v-if="msg.type == 2" :src="msg.message" @click="openSourceInNewTab(msg.message)"/>
+        <q-img v-if="msg.type == 2" :src="msg.message" @click="openSourceInNewTab(msg.message)" />
         <q-video v-if="msg.type == 3" :src="msg.message" @click="openSourceInNewTab(msg.message)" />
       </q-chat-message>
     </div>
 
     <div class="chat-input-container">
-      <q-input v-model="message" label="Message" class="bottom-input" @keyup.enter="sendMessage"
-        :placeholder="message_type == 1 ? '请输入内容' : message_type == 2 ? '请输入图片直链' : message_type == 3 ? '请输入视频直链' : ''">
+      <q-input v-model="message" label="Message" class="bottom-input" @keyup.enter="sendMessage" placeholder="请输入内容">
         <q-expansion-item v-model="expansionVisible" style="position: absolute; bottom: 5px; right: 10px;">
-          <q-card style="background-color: #ECF0F1;">
-            <q-card-section>
               <q-list bordened vertical>
-                <q-item>
-                  <q-btn flat label="📝 文字" @click="editTypeText" />
-                </q-item>
-                <q-item>
+                <q-item style="background-color: #ECF0F1;">
                   <q-btn flat label="📷 图片" @click="editTypePhoto" />
                 </q-item>
-                <q-item>
+                <q-item style="background-color: #ECF0F1;">
                   <q-btn flat label="📹 视频" @click="editTypeVideo" />
                 </q-item>
               </q-list>
-            </q-card-section>
-          </q-card>
         </q-expansion-item>
       </q-input>
       <q-btn round icon="navigation" class="send-btn" @click="sendMessage" />
       <q-btn round icon="add" class="send-btn" @click="editType" />
     </div>
+
+    <q-dialog v-model="uploadFileDialogVisible_1">
+      <q-uploader url="http://localhost:3000/api/upload" style="max-width: 300px" accept="image/*" @uploaded="handleUploadSuccess" @upload-error="handleUploadError" field-name="file" label="📷 Upload Images"/>
+    </q-dialog>
+
+    <q-dialog v-model="uploadFileDialogVisible_2">
+      <q-uploader url="http://localhost:3000/api/upload" style="max-width: 300px" accept="video/*" @uploaded="handleUploadSuccess" @upload-error="handleUploadError" field-name="file" label="📹 Upload Videos"/>
+    </q-dialog>
   </q-page>
 </template>
 
@@ -153,7 +152,7 @@ export default {
       ws: null,
       isConnected: false,
       currentTime: '',
-      leftDrawerOpen_1: false, newChatroomDialogVisible: false, expansionVisible: false,
+      leftDrawerOpen_1: false, newChatroomDialogVisible: false, expansionVisible: false, uploadFileDialogVisible_1: false,uploadFileDialogVisible_2: false,
       current_chatroom: '', current_chatroom_id: '1',
       chatrooms: [],
       showDetails: false,
@@ -264,6 +263,7 @@ export default {
         const msg = { chatroom: this.current_chatroom, Id: this.Id, name: this.name, avatar: this.avatar_url, message: this.message, currentTime: currentTime, message_type: parseInt(this.message_type, 10) };
         this.ws.send(JSON.stringify(msg));
         this.message = '';
+        this.message_type = 1;
       } else {
         console.log("WebSocket is not connected");
       }
@@ -408,7 +408,6 @@ export default {
             this.fetchChatrooms();
           })
           .catch(error => {
-            // 处理错误响应
             this.$q.notify({
               type: 'negative',
               message: error.message,
@@ -452,16 +451,44 @@ export default {
       this.expansionVisible = !this.expansionVisible;
     },
     editTypePhoto() {
+      this.uploadFileDialogVisible_1 = !this.uploadFileDialogVisible_1;
       this.message_type = '2';
       this.expansionVisible = !this.expansionVisible;
     },
     editTypeVideo() {
+      this.uploadFileDialogVisible_2 = !this.uploadFileDialogVisible_2;
       this.message_type = '3';
       this.expansionVisible = !this.expansionVisible;
     },
-    openSourceInNewTab(url){
+    openSourceInNewTab(url) {
       window.open(url, '_blank');
-    }
+    },
+    handleUploadSuccess({ xhr }){
+      const response = JSON.parse(xhr.responseText);
+      const filename = response.filename;
+      this.message = "http://localhost:3000/file/"+filename
+      this.sendMessage();
+      console.log(this.message)
+      this.$q.notify({
+        message: '上传成功',
+        color: 'positive',
+        icon: 'check'
+      });
+      if(this.message_type == 2){
+        this.uploadFileDialogVisible_1 = !this.uploadFileDialogVisible_1;
+      }
+      if(this.message_type == 3){
+        this.uploadFileDialogVisible_2 =!this.uploadFileDialogVisible_2;  
+      }
+    },
+    handleUploadError(err) {
+      this.$q.notify({
+        message: '文件上传失败',
+        color: 'negative',
+        icon: 'error'
+      });
+      console.error('文件上传失败:', err);
+    },
   }
 };
 </script>
@@ -485,7 +512,6 @@ export default {
   width: 40px;
   height: 40px;
   margin-left: 2%;
-  /* 让按钮与输入框紧密连接 */
   display: flex;
   justify-content: center;
   background-color: transparent;
@@ -494,7 +520,6 @@ export default {
 
 .send-btn .q-btn__content {
   padding: 0;
-  /* 去除按钮内容的内边距 */
 }
 
 .chatroom-btn {

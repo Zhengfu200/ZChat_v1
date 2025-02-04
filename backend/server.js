@@ -9,6 +9,7 @@ const crypto = require('crypto');
 const fs = require('fs');
 const { accountInfo } = require('./js/accountinfo')
 const { editAccount } = require('./js/editAccount');
+const multer = require('multer');
 
 //聊天室管理数据库
 const chatroomsDb = new sqlite3.Database('./Chatrooms.db');
@@ -482,6 +483,81 @@ app.get('/api/accountInfo', accountInfo);
 //编辑用户信息
 app.post('/api/editAccount', editAccount);
 
+//文件上传
+const storage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        cb(null, path.join(__dirname, '/src'));
+    },
+    filename: function (req, file, cb) {
+      let fileName = file.originalname;
+      let filePath = path.join(__dirname, '/src', fileName);
+      while (fs.existsSync(filePath)) {
+        fileName = generateRandomFileName(file.originalname);
+        filePath = path.join(__dirname, '/src', fileName);
+      }
+  
+      cb(null, fileName); 
+    }
+});
+
+const upload = multer({ storage: storage })
+
+
+app.post('/api/upload', upload.single('file'), (req, res) => {
+  if (!req.file) {
+    console.log('No file uploaded.')
+    return res.status(400).send('No file uploaded.');
+  }
+  console.log(req.file.filename)
+  res.status(200).json({ filename: req.file.filename });
+});
+
+//文件接口
+app.get('/file/:filename', (req, res) => {
+  const filename = req.params.filename;
+  const filePath = path.join(__dirname, '/src', filename);
+
+  if(fs.existsSync(filePath)){
+    const mimeType = getMimeType(filename);
+    res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
+    res.setHeader('Content-Type', mimeType);
+    const fileStream = fs.createReadStream(filePath);
+    fileStream.pipe(res);
+  }else{
+    res.status(404).send('File not found');
+  }
+})
+
+
+function getMimeType(filename) {
+  const ext = path.extname(filename).toLowerCase();
+  switch (ext) {
+    case '.jpg':
+    case '.jpeg':
+      return 'image/jpeg';
+    case '.png':
+      return 'image/png';
+    case '.gif':
+      return 'image/gif';
+    case '.mp4':
+      return 'video/mp4';
+    case '.webm':
+      return 'video/webm';
+    case '.ogg':
+      return 'video/ogg';
+    default:
+      return 'application/octet-stream';
+  }
+}
+
+
+//生成随机文件名
+function generateRandomFileName(originalName) {
+  const ext = path.extname(originalName); 
+  const baseName = path.basename(originalName, ext); 
+  const randomString = Math.random().toString(36).substring(2, 8); 
+  return `${baseName}-${randomString}${ext}`; 
+}
 
 // HTTP 升级为 WebSocket 连接
 server.on('upgrade', (req, socket, head) => {
