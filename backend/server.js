@@ -519,7 +519,11 @@ app.get('/file/:filename', (req, res) => {
 
   if(fs.existsSync(filePath)){
     const mimeType = getMimeType(filename);
-    res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
+    if (mimeType === 'application/octet-stream') {
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    } else {
+      res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
+    }
     res.setHeader('Content-Type', mimeType);
     const fileStream = fs.createReadStream(filePath);
     fileStream.pipe(res);

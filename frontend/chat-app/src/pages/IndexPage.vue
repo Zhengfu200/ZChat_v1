@@ -107,34 +107,62 @@
           <span v-html="`<span>${msg.name}</span>`"></span>
         </template>
         <span v-if="msg.type == 1">{{ msg.message }}</span>
-        <q-img v-if="msg.type == 2" :src="msg.message" @click="openSourceInNewTab(msg.message)" />
-        <q-video v-if="msg.type == 3" :src="msg.message" @click="openSourceInNewTab(msg.message)" />
+        <q-img v-if="msg.type == 2 && msg.message.startsWith('http')" :src="msg.message"
+          @click="openSourceInNewTab(msg.message)" />
+        <q-video v-if="msg.type == 3 && msg.message.startsWith('http')" :src="msg.message"
+          @click="openSourceInNewTab(msg.message)" />
+        <a v-if="msg.type == 4" :href="msg.message.startsWith('http') ? msg.message : 'http://' + msg.message"
+          target="_blank">🔗 {{ msg.message }}</a>
+        <div v-if="msg.type == 5">
+          <span>📁 文件</span>
+          <q-btn color="primary"  rounded style="margin-left: 5px;" text-color="white" @click=" downloadFile(msg.message)">
+            直链下载
+          </q-btn>
+        </div>
       </q-chat-message>
     </div>
 
     <div class="chat-input-container">
-      <q-input v-model="message" label="Message" class="bottom-input" @keyup.enter="sendMessage" placeholder="请输入内容">
+      <q-input v-model="message" label="Message" class="bottom-input" @keyup.enter="sendMessage"
+        :placeholder="message_type == 4 ? '请输入网页链接' : '请输入内容'">
         <q-expansion-item v-model="expansionVisible" style="position: absolute; bottom: 5px; right: 10px;">
-              <q-list bordened vertical>
-                <q-item style="background-color: #ECF0F1;">
-                  <q-btn flat label="📷 图片" @click="editTypePhoto" />
-                </q-item>
-                <q-item style="background-color: #ECF0F1;">
-                  <q-btn flat label="📹 视频" @click="editTypeVideo" />
-                </q-item>
-              </q-list>
+          <q-list bordened vertical>
+            <q-item style="background-color: #ECF0F1;">
+              <q-btn flat label="📝 文字" @click="editTypeText" />
+            </q-item>
+            <q-item style="background-color: #ECF0F1;">
+              <q-btn flat label="📷 图片" @click="editTypePhoto" />
+            </q-item>
+            <q-item style="background-color: #ECF0F1;">
+              <q-btn flat label="📹 视频" @click="editTypeVideo" />
+            </q-item>
+            <q-item style="background-color: #ECF0F1;">
+              <q-btn flat label="🔗 链接" @click="editTypeWeb" />
+            </q-item>
+            <q-item style="background-color: #ECF0F1;">
+              <q-btn flat label="📁 文件" @click="editTypeFile" />
+            </q-item>
+          </q-list>
         </q-expansion-item>
       </q-input>
-      <q-btn round icon="navigation" class="send-btn" @click="sendMessage" />
-      <q-btn round icon="add" class="send-btn" @click="editType" />
+      <q-btn round icon="navigation" class="send-btn q-btn-shadow" @click="sendMessage"
+        style="background-color: #ECF0F1;" />
+      <q-btn round icon="add" class="send-btn q-btn-shadow" @click="editType" style="background-color: #ECF0F1;" />
     </div>
 
     <q-dialog v-model="uploadFileDialogVisible_1">
-      <q-uploader url="http://localhost:3000/api/upload" style="max-width: 300px" accept="image/*" @uploaded="handleUploadSuccess" @upload-error="handleUploadError" field-name="file" label="📷 Upload Images"/>
+      <q-uploader url="http://localhost:3000/api/upload" style="max-width: 300px" accept="image/*"
+        @uploaded="handleUploadSuccess" @upload-error="handleUploadError" field-name="file" label="📷 Upload Images" />
     </q-dialog>
 
     <q-dialog v-model="uploadFileDialogVisible_2">
-      <q-uploader url="http://localhost:3000/api/upload" style="max-width: 300px" accept="video/*" @uploaded="handleUploadSuccess" @upload-error="handleUploadError" field-name="file" label="📹 Upload Videos"/>
+      <q-uploader url="http://localhost:3000/api/upload" style="max-width: 300px" accept="video/*"
+        @uploaded="handleUploadSuccess" @upload-error="handleUploadError" field-name="file" label="📹 Upload Videos" />
+    </q-dialog>
+
+    <q-dialog v-model="uploadFileDialogVisible_3">
+      <q-uploader url="http://localhost:3000/api/upload" style="max-width: 300px" @uploaded="handleUploadSuccess"
+        @upload-error="handleUploadError" field-name="file" label="📁 Upload Files" />
     </q-dialog>
   </q-page>
 </template>
@@ -152,7 +180,7 @@ export default {
       ws: null,
       isConnected: false,
       currentTime: '',
-      leftDrawerOpen_1: false, newChatroomDialogVisible: false, expansionVisible: false, uploadFileDialogVisible_1: false,uploadFileDialogVisible_2: false,
+      leftDrawerOpen_1: false, newChatroomDialogVisible: false, expansionVisible: false, uploadFileDialogVisible_1: false, uploadFileDialogVisible_2: false, uploadFileDialogVisible_3: false,
       current_chatroom: '', current_chatroom_id: '1',
       chatrooms: [],
       showDetails: false,
@@ -460,13 +488,22 @@ export default {
       this.message_type = '3';
       this.expansionVisible = !this.expansionVisible;
     },
+    editTypeWeb() {
+      this.message_type = '4';
+      this.expansionVisible = !this.expansionVisible;
+    },
+    editTypeFile() {
+      this.uploadFileDialogVisible_3 = !this.uploadFileDialogVisible_3;
+      this.message_type = '5';
+      this.expansionVisible = !this.expansionVisible;
+    },
     openSourceInNewTab(url) {
       window.open(url, '_blank');
     },
-    handleUploadSuccess({ xhr }){
+    handleUploadSuccess({ xhr }) {
       const response = JSON.parse(xhr.responseText);
       const filename = response.filename;
-      this.message = "http://localhost:3000/file/"+filename
+      this.message = "http://localhost:3000/file/" + filename
       this.sendMessage();
       console.log(this.message)
       this.$q.notify({
@@ -474,11 +511,14 @@ export default {
         color: 'positive',
         icon: 'check'
       });
-      if(this.message_type == 2){
+      if (this.message_type == 2) {
         this.uploadFileDialogVisible_1 = !this.uploadFileDialogVisible_1;
       }
-      if(this.message_type == 3){
-        this.uploadFileDialogVisible_2 =!this.uploadFileDialogVisible_2;  
+      if (this.message_type == 3) {
+        this.uploadFileDialogVisible_2 = !this.uploadFileDialogVisible_2;
+      }
+      if (this.message_type == 5) {
+        this.uploadFileDialogVisible_3 = !this.uploadFileDialogVisible_3;
       }
     },
     handleUploadError(err) {
@@ -488,6 +528,13 @@ export default {
         icon: 'error'
       });
       console.error('文件上传失败:', err);
+    },
+    downloadFile(url) {
+      console.log(url);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = url.split('/').pop();
+      link.click();
     },
   }
 };
