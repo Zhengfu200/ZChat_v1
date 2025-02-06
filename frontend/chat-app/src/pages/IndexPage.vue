@@ -72,6 +72,7 @@
       <q-card-section>
         <q-btn flat class="full-width no-border" @click="newChatroomDialogVisible = true">💬 新建聊天室</q-btn>
         <q-btn flat class="full-width no-border" @click="gotoAccountInfo">👋 个人资料</q-btn>
+        <q-btn flat class="full-width no-border" @click="gotoLogin">👉 登录</q-btn>
         <q-btn flat class="full-width no-border" @click="toggleDrawer">⬅️ 关闭</q-btn>
       </q-card-section>
     </q-drawer>
@@ -97,7 +98,7 @@
     <div class="chat-container">
       <q-chat-message v-for="msg in messages" :key="msg.name" :sent="msg.name === name" :name="null" name-html
         :avatar="msg.avatar_url ? msg.avatar_url : 'https://img.icons8.com/?size=100&id=YXG86oegZMMh&format=png&color=000000'"
-        :stamp="msg.date">
+        :stamp="msg.date" @click="clickMessage($event, msg.id, msg.name_id)">
         <template v-slot:name>
           <div v-for="(all_badge, key) in all_badges" :key="key" style="display: flex; gap: 3px;flex-wrap: wrap">
             <div v-for="(idIndex, value) in all_badge" :key="idIndex">
@@ -115,12 +116,24 @@
           target="_blank">🔗 {{ msg.message }}</a>
         <div v-if="msg.type == 5">
           <span>📁 文件</span>
-          <q-btn color="primary"  rounded style="margin-left: 5px;" text-color="white" @click=" downloadFile(msg.message)">
+          <q-btn color="primary" rounded style="margin-left: 5px;" text-color="white"
+            @click=" downloadFile(msg.message)">
             直链下载
           </q-btn>
         </div>
       </q-chat-message>
     </div>
+
+    <q-slide-transition>
+      <q-card v-if="siderVisible"
+        :style="{ position: 'fixed', left: expansionX + 'px', top: expansionY + 'px', zIndex: 999 }">
+        <q-list bordened vertical>
+          <q-item style="background-color: #ECF0F1;">
+            <q-btn flat label="查看个人资料" @click="gotoUserInfo(this.edit_name_id)" />
+          </q-item>
+        </q-list>
+      </q-card>
+    </q-slide-transition>
 
     <div class="chat-input-container">
       <q-input v-model="message" label="Message" class="bottom-input" @keyup.enter="sendMessage"
@@ -180,13 +193,15 @@ export default {
       ws: null,
       isConnected: false,
       currentTime: '',
-      leftDrawerOpen_1: false, newChatroomDialogVisible: false, expansionVisible: false, uploadFileDialogVisible_1: false, uploadFileDialogVisible_2: false, uploadFileDialogVisible_3: false,
+      leftDrawerOpen_1: false, newChatroomDialogVisible: false, expansionVisible: false, uploadFileDialogVisible_1: false, uploadFileDialogVisible_2: false, uploadFileDialogVisible_3: false, siderVisible: false,
       current_chatroom: '', current_chatroom_id: '1',
       chatrooms: [],
       showDetails: false,
       current_chatroom_owner: '',
       badges: [], all_badges: [],
       newChatroomName: '', newChatroomOwner: '', newChatroomModerator: '',
+      expansionX: 0, expansionY: 0,
+      edit_message_id: '', edit_name_id: '',
     };
   },
   mounted() {
@@ -207,34 +222,7 @@ export default {
       console.error("Invalid token or decoding failed:", err);
       this.$router.push('/login');
     }
-
-    // WebSocket 连接
-    this.ws = new WebSocket(`ws://localhost:3000`);
-
-    // 监听连接打开事件
-    this.ws.onopen = () => {
-      this.isConnected = true;
-      console.log("WebSocket connection established");
-    };
-
-    // 监听收到的消息
-    this.ws.onmessage = (event) => {
-      const newMessage = JSON.parse(event.data);
-      this.messages.push(newMessage);
-      this.fetchMessages();
-    };
-
-    // 监听连接关闭事件
-    this.ws.onclose = () => {
-      this.isConnected = false;
-      console.log("WebSocket connection closed");
-    };
-
-    // 监听连接错误事件
-    this.ws.onerror = (err) => {
-      console.log("WebSocket error:", err);
-    };
-
+    this.connetWebsocket();
     this.fetchChatrooms();
     this.fetchAccountInfo();
 
@@ -242,6 +230,25 @@ export default {
 
   },
   methods: {
+    async connetWebsocket() {
+      this.ws = new WebSocket(`ws://localhost:3000`);
+      this.ws.onopen = () => {
+        this.isConnected = true;
+        console.log("WebSocket connection established");
+      };
+      this.ws.onmessage = (event) => {
+        const newMessage = JSON.parse(event.data);
+        this.messages.push(newMessage);
+        this.fetchMessages();
+      };
+      this.ws.onclose = () => {
+        this.isConnected = false;
+        console.log("WebSocket connection closed");
+      };
+      this.ws.onerror = (err) => {
+        console.log("WebSocket error:", err);
+      };
+    },
     async fetchAllChatrooms() {
       fetch("http://localhost:3000/api/all_chatrooms")
         .then(response => response.json())
@@ -262,11 +269,16 @@ export default {
           this.fetchMessages();
         })
         .catch(err => {
+          this.$q.notify({
+            color: 'negative',
+            message: '聊天室获取错误，请检查网络',
+            icon: 'report_problem',
+            position: 'top'
+          });
           console.error("Error fetching chatrooms:", err);
         });
     },
     async fetchMessages() {
-
       fetch(`http://localhost:3000/api/chatroomBadges?chatroom_id=${this.current_chatroom_id}`)
         .then(response => response.json())
         .then(data => {
@@ -293,6 +305,12 @@ export default {
         this.message = '';
         this.message_type = 1;
       } else {
+        this.$q.notify({
+          color: 'yellow',
+          message: '服务器连接中断，请刷新再试',
+          icon: 'report_problem',
+          position: 'top'
+        });
         console.log("WebSocket is not connected");
       }
     },
@@ -338,7 +356,6 @@ export default {
       })
         .then(response => {
           if (response.status === 401) {
-            // 如果返回 401 错误，表示需要 Token
             this.$q.notify({
               color: 'negative',
               message: 'Token is required',
@@ -347,7 +364,6 @@ export default {
             });
             throw new Error('Token is required');
           } else if (response.status === 402) {
-            // 如果返回 402 错误，表示 Token 无效
             this.$q.notify({
               color: 'negative',
               message: 'Token is invalid,please try to login again!',
@@ -471,6 +487,9 @@ export default {
     gotoAccountInfo() {
       this.$router.push({ path: '/AccountInfo', query: { id: this.Id } });
     },
+    gotoUserInfo(userId) {
+      this.$router.push({ path: '/AccountInfo', query: { id: userId } });
+    },
     editType() {
       this.expansionVisible = !this.expansionVisible;
     },
@@ -535,6 +554,17 @@ export default {
       link.href = url;
       link.download = url.split('/').pop();
       link.click();
+    },
+    openSider() {
+      console.log("siderVisible", this.siderVisible);
+      this.siderVisible = !this.siderVisible;
+    },
+    clickMessage(event, messageId, nameId) {
+      this.expansionX = event.clientX;
+      this.expansionY = event.clientY;
+      this.edit_message_id = messageId;
+      this.edit_name_id = nameId;
+      this.siderVisible = !this.siderVisible
     },
   }
 };

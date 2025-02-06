@@ -238,13 +238,13 @@ wss.on('connection', (ws) => {
               }
             })
 
-            messages_db.run("INSERT INTO messages (name, message, avatar_url, date, badges, type) VALUES (?, ?, ?, ?, ?, ?)", [name, message, avatar, currentTime, JSON.stringify(badges), message_type], function (err) {
+            messages_db.run("INSERT INTO messages (name, name_id, message, avatar_url, date, badges, type) VALUES (?, ? ,?, ?, ?, ?, ?)", [name, Id, message, avatar, currentTime, JSON.stringify(badges), message_type], function (err) {
               if (err) {
                 console.error(err);
               } else {
                 wss.clients.forEach((client) => {
                   if (client.readyState === ws.OPEN) {
-                    client.send(JSON.stringify({ name, message, avatar, currentTime, badges, message_type }));
+                    client.send(JSON.stringify({ name, Id, message, avatar, currentTime, badges, message_type }));
                   }
                 });
               }
@@ -423,10 +423,12 @@ app.post('/api/CreateChatRoom', (req, res) => {
         CREATE TABLE IF NOT EXISTS messages (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           name TEXT,
+          name_id TEXT,
           message TEXT,
           avatar_url TEXT,
           date TEXT,
-          badges TEXT
+          badges TEXT,
+          type INTEGER
         )
       `, (err) => {
         if (err) {

@@ -1,5 +1,11 @@
 <template>
     <q-layout>
+        <q-bar class="bg-primary">
+            <q-btn dense flat :icon="matArrowBack" color="white" @click="back" />
+            <div class="text-weight-bold text-white">
+                Register
+            </div>
+        </q-bar>
         <q-page-container>
             <q-page class="flex flex-center">
                 <q-card style="width: 400px;">
@@ -9,9 +15,12 @@
 
                     <q-card-section>
                         <q-input rounded outlined v-model="username" label="Username" />
-                        <q-input style="padding-top: 10px;" rounded outlined v-model="password" label="Password" type="password" />
-                        <q-input style="padding-top: 10px;" rounded outlined v-model="confirmPassword" label="Confirm Password" type="password" />
-                        <q-input style="padding-top: 10px;" rounded outlined v-model="Avatar_url" label="Please enter the url of your avatar(Optional)"/>
+                        <q-input style="padding-top: 10px;" rounded outlined v-model="password" label="Password"
+                            type="password" />
+                        <q-input style="padding-top: 10px;" rounded outlined v-model="confirmPassword"
+                            label="Confirm Password" type="password" />
+                        <q-input style="padding-top: 10px;" rounded outlined v-model="Avatar_url"
+                            label="Please enter the url of your avatar(Optional)" />
                     </q-card-section>
 
                     <q-card-actions>
@@ -24,6 +33,7 @@
 </template>
 
 <script>
+import { matArrowBack } from '@quasar/extras/material-icons';
 import axios from 'axios';
 
 export default {
@@ -33,6 +43,7 @@ export default {
             password: '',
             confirmPassword: '',
             Avatar_url: '',
+            matArrowBack,
         };
     },
     methods: {
@@ -74,6 +85,9 @@ export default {
                     icon: 'warning'
                 });
             }
+        },
+        back() {
+            this.$router.go(-1);
         }
     }
 };

@@ -1,6 +1,15 @@
 <template>
   <q-layout>
     <q-page-container>
+      <q-bar class="bg-primary">
+        <q-btn dense flat :icon="matArrowBack" color="white" @click="back"/>
+        <div class="text-weight-bold text-white">
+          Login
+        </div>
+        <div class="col text-center text-weight-bold" style="color: white;">
+          请登录/注册后继续使用
+        </div>
+      </q-bar>
       <q-page class="flex flex-center">
         <q-card style="width: 400px;">
           <q-card-section>
@@ -23,13 +32,15 @@
 </template>
 
 <script>
+import { matArrowBack } from '@quasar/extras/material-icons';
 import axios from 'axios';
 
 export default {
   data() {
     return {
+      matArrowBack,
       username: '',
-      password: ''
+      password: '',
     };
   },
   methods: {
@@ -60,7 +71,10 @@ export default {
       }
     },
     goToRegister() {
-      this.$router.push('/register'); // 跳转到注册页面
+      this.$router.push('/register');
+    },
+    back(){
+      this.$router.go(-1);
     }
   }
 };
