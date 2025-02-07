@@ -34,7 +34,7 @@ app.use(bodyParser.json());
 const JWT_SECRET = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6Ind3dy5ranNvbi5jb20iLCJzdWIiOiJkZW1vIiwiaWF0IjoxNzM3OTczOTMyLCJuYmYiOjE3Mzc5NzM5MzIsImV4cCI6MTczODA2MDMzMn0.T7gBlg6XwSLWMx5vwXihH3B1q7B8SyJohhrTdXOtGBw';
 
 //获取所有聊天室
-app.get('/api/all_chatrooms', (req,res) => {
+app.get('/api/all_chatrooms', (req, res) => {
   chatroomsDb.all("SELECT * FROM chatrooms", (err, rows) => {
     if (err) {
       res.status(500).json({ error: err.message });
@@ -184,7 +184,7 @@ const wss = new WebSocketServer({ noServer: true });
 wss.on('connection', (ws) => {
   console.log("WebSocket connection established");
   ws.on('message', (data) => {
-    const { chatroom, Id, name, message, avatar, currentTime, message_type } = JSON.parse(data);
+    const { action, chatroom, Id } = JSON.parse(data);
 
     //从Chatrooms.db定位Chatroom,查找历史消息数据库所在路径
     chatroomsDb.get("SELECT * FROM chatrooms WHERE name = ?", [chatroom], (err, row) => {
@@ -200,58 +200,89 @@ wss.on('connection', (ws) => {
       if (!fs.existsSync(dbPath)) {
         return res.status(404).json({ error: 'Chatroom not found' });
       }
-
-
       //连接消息数据库
       const messages_db = new sqlite3.Database(dbPath);
 
-
-      //检索badges表
-      messages_db.all("PRAGMA table_info(badges)", (err, columns) => {
-        if (err) {
-          console.error('查询badges表字段失败：', err);
-          return;
-        }
-
-        const fieldNames = columns.map(col => col.name);
-
-        messages_db.get("SELECT * FROM badges", (err, badgeRow) => {
+      if (action == 'send') {
+        console.log('send message')
+        const { name, message, avatar, currentTime, message_type, message_isReply, message_Reply } = JSON.parse(data);
+        //检索badges表
+        messages_db.all("PRAGMA table_info(badges)", (err, columns) => {
           if (err) {
-            console.error('查询 badges 表失败:', err);
+            console.error('查询badges表字段失败：', err);
             return;
           }
+          const fieldNames = columns.map(col => col.name);
 
-          //检索badges字段中的内容，并于当前用户id匹配
-          if (badgeRow) {
-            fieldNames.forEach(field => {
-              if (badgeRow[field]) {
-                try {
-                  const idsList = JSON.parse(badgeRow[field]);
-                  if (Array.isArray(idsList) && idsList.includes(Id.toString())) {
-                    badges.push(field);
-                  } else {
+          messages_db.get("SELECT * FROM badges", (err, badgeRow) => {
+            if (err) {
+              console.error('查询 badges 表失败:', err);
+              return;
+            }
+            //检索badges字段中的内容，并于当前用户id匹配
+            if (badgeRow) {
+              fieldNames.forEach(field => {
+                if (badgeRow[field]) {
+                  try {
+                    const idsList = JSON.parse(badgeRow[field]);
+                    if (Array.isArray(idsList) && idsList.includes(Id.toString())) {
+                      badges.push(field);
+                    } else {
+                    }
+                  } catch (err) {
+                    console.error('解析 badges 表数据失败:', err);
+                    return;
                   }
-                } catch (err) {
-                  console.error('解析 badges 表数据失败:', err);
-                  return;
                 }
-              }
-            })
-
-            messages_db.run("INSERT INTO messages (name, name_id, message, avatar_url, date, badges, type) VALUES (?, ? ,?, ?, ?, ?, ?)", [name, Id, message, avatar, currentTime, JSON.stringify(badges), message_type], function (err) {
+              })
+              messages_db.run("INSERT INTO messages (name, name_id, message, avatar_url, date, badges, type, isReply, reply) VALUES (?, ? ,?, ?, ?, ?, ?, ?, ?)", [name, Id, message, avatar, currentTime, JSON.stringify(badges), message_type, message_isReply, message_Reply], function (err) {
+                if (err) {
+                  console.error(err);
+                } else {
+                  wss.clients.forEach((client) => {
+                    if (client.readyState === ws.OPEN) {
+                      client.send(JSON.stringify({ action: 'newMessage',name, Id, message, avatar, currentTime, badges, message_type, message_isReply, message_Reply }));
+                    }
+                  });
+                }
+              });
+            }
+          })
+        })
+      } else if (action == 'recall') {
+        const { message_id, name_id, token } = JSON.parse(data);
+        jwt.verify(token, JWT_SECRET, (err, decoded) => {
+          if (err) {
+            console.log('Token is invalid');
+            return ws.send(JSON.stringify({ success: false, message: 'Token is invalid' }));
+          }
+          const userId = decoded.userId;
+          if (name_id == userId) {
+            messages_db.get("SELECT * FROM messages WHERE id = ?", [message_id], (err, row) => {
               if (err) {
-                console.error(err);
-              } else {
-                wss.clients.forEach((client) => {
-                  if (client.readyState === ws.OPEN) {
-                    client.send(JSON.stringify({ name, Id, message, avatar, currentTime, badges, message_type }));
-                  }
-                });
+                console.error('查询消息失败：', err);
+                return ws.send(JSON.stringify({ success: false, message: '查询消息失败' }));
               }
-            });
+              if (!row) {
+                return ws.send(JSON.stringify({ success: false, message: '找不到该消息' }));
+              }
+              messages_db.run("UPDATE messages SET message = ?, type = ? WHERE id = ?", ['原消息已撤回', 1, message_id], function (err) {
+                if(err){
+                  console.error('撤回消息失败：', err);
+                }else{
+                  wss.clients.forEach((client) => {
+                    if (client.readyState === ws.OPEN) {
+                      client.send(JSON.stringify({ action: 'messageRevoked',success: true, message: '消息已撤回' }));
+                    }
+                  });
+                }
+              });
+            })
+          } else {
+            return ws.send(JSON.stringify({ success: false, message: '你无法撤回他人消息' }));
           }
         })
-      })
+      }
     });
   });
 
@@ -263,7 +294,7 @@ wss.on('connection', (ws) => {
 // 修改聊天室信息(1.基本信息）
 app.post('/api/mod', (req, res) => {
   const token = req.headers.authorization?.split(' ')[1];
-  const { chatroom_id,chatroom_previous, owner_previous, chatroom_modified, owner_modified } = req.body;
+  const { chatroom_id, chatroom_previous, owner_previous, chatroom_modified, owner_modified } = req.body;
   if (!token) {
     return res.status(401).json({ success: false, message: 'Token is required' });
   }
@@ -317,7 +348,7 @@ app.post('/api/mod', (req, res) => {
               if (!row) {
                 return res.status(400).json({ error: '找不到匹配的聊天室' });
               }
-              
+
               chatroomsDb.run("UPDATE chatrooms SET name = ?, owner = ?, owner_id = ? WHERE name = ? AND owner = ? AND owner_id = ?",
                 [chatroom_modified, owner_modified, owner_modified_id, chatroom_previous, owner_previous, owner_previous_id], (err) => {
                   messages_db.get("SELECT * FROM badges", (err, badgeRow) => {
@@ -428,7 +459,9 @@ app.post('/api/CreateChatRoom', (req, res) => {
           avatar_url TEXT,
           date TEXT,
           badges TEXT,
-          type INTEGER
+          type INTEGER,
+          isReply TEXT,
+          reply TEXT
         )
       `, (err) => {
         if (err) {
@@ -465,7 +498,7 @@ app.post('/api/CreateChatRoom', (req, res) => {
               if (err) {
                 if (err.code === 'SQLITE_CONSTRAINT_UNIQUE') {
                   return res.status(400).json({ error: 'Chatroom name already exists' });
-                }else{
+                } else {
                   console.error('Error inserting into chatrooms:', err);
                   return res.status(500).json({ error: 'Failed to insert into chatrooms' });
                 }
@@ -487,19 +520,19 @@ app.post('/api/editAccount', editAccount);
 
 //文件上传
 const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        cb(null, path.join(__dirname, '/src'));
-    },
-    filename: function (req, file, cb) {
-      let fileName = file.originalname;
-      let filePath = path.join(__dirname, '/src', fileName);
-      while (fs.existsSync(filePath)) {
-        fileName = generateRandomFileName(file.originalname);
-        filePath = path.join(__dirname, '/src', fileName);
-      }
-  
-      cb(null, fileName); 
+  destination: (req, file, cb) => {
+    cb(null, path.join(__dirname, '/src'));
+  },
+  filename: function (req, file, cb) {
+    let fileName = file.originalname;
+    let filePath = path.join(__dirname, '/src', fileName);
+    while (fs.existsSync(filePath)) {
+      fileName = generateRandomFileName(file.originalname);
+      filePath = path.join(__dirname, '/src', fileName);
     }
+
+    cb(null, fileName);
+  }
 });
 
 const upload = multer({ storage: storage })
@@ -519,7 +552,7 @@ app.get('/file/:filename', (req, res) => {
   const filename = req.params.filename;
   const filePath = path.join(__dirname, '/src', filename);
 
-  if(fs.existsSync(filePath)){
+  if (fs.existsSync(filePath)) {
     const mimeType = getMimeType(filename);
     if (mimeType === 'application/octet-stream') {
       res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
@@ -529,7 +562,7 @@ app.get('/file/:filename', (req, res) => {
     res.setHeader('Content-Type', mimeType);
     const fileStream = fs.createReadStream(filePath);
     fileStream.pipe(res);
-  }else{
+  } else {
     res.status(404).send('File not found');
   }
 })
@@ -559,10 +592,10 @@ function getMimeType(filename) {
 
 //生成随机文件名
 function generateRandomFileName(originalName) {
-  const ext = path.extname(originalName); 
-  const baseName = path.basename(originalName, ext); 
-  const randomString = Math.random().toString(36).substring(2, 8); 
-  return `${baseName}-${randomString}${ext}`; 
+  const ext = path.extname(originalName);
+  const baseName = path.basename(originalName, ext);
+  const randomString = Math.random().toString(36).substring(2, 8);
+  return `${baseName}-${randomString}${ext}`;
 }
 
 // HTTP 升级为 WebSocket 连接

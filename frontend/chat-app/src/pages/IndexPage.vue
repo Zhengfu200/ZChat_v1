@@ -98,7 +98,8 @@
     <div class="chat-container">
       <q-chat-message v-for="msg in messages" :key="msg.name" :sent="msg.name === name" :name="null" name-html
         :avatar="msg.avatar_url ? msg.avatar_url : 'https://img.icons8.com/?size=100&id=YXG86oegZMMh&format=png&color=000000'"
-        :stamp="msg.date" @click="clickMessage($event, msg.id, msg.name_id)">
+        :stamp="msg.date" @click="clickMessage($event, msg.id, msg.name_id, msg.name)">
+        <div v-if="msg.isReply == 1">{{ msg.reply }}</div>
         <template v-slot:name>
           <div v-for="(all_badge, key) in all_badges" :key="key" style="display: flex; gap: 3px;flex-wrap: wrap">
             <div v-for="(idIndex, value) in all_badge" :key="idIndex">
@@ -111,7 +112,7 @@
         <q-img v-if="msg.type == 2 && msg.message.startsWith('http')" :src="msg.message"
           @click="openSourceInNewTab(msg.message)" />
         <q-video v-if="msg.type == 3 && msg.message.startsWith('http')" :src="msg.message"
-          @click="openSourceInNewTab(msg.message)" />
+          @click="openSourceInNewTab(msg.message)" :autoplay="false" />
         <a v-if="msg.type == 4" :href="msg.message.startsWith('http') ? msg.message : 'http://' + msg.message"
           target="_blank">🔗 {{ msg.message }}</a>
         <div v-if="msg.type == 5">
@@ -129,17 +130,29 @@
         :style="{ position: 'fixed', left: expansionX + 'px', top: expansionY + 'px', zIndex: 999 }">
         <q-list bordened vertical>
           <q-item style="background-color: #ECF0F1;">
-            <q-btn flat label="查看个人资料" @click="gotoUserInfo(this.edit_name_id)" />
+            <q-btn flat label="🔎 查看个人资料" @click="gotoUserInfo(this.edit_name_id)" />
+          </q-item>
+          <q-item style="background-color: #ECF0F1;">
+            <q-btn flat label="🗣️ 回复TA" @click="replyMessage(this.edit_name)" />
+          </q-item>
+          <q-item style="background-color: #ECF0F1;">
+            <q-btn flat label="👉 撤回消息" @click="recallMessage(this.edit_message_id, this.edit_name_id)" />
+          </q-item>
+          <q-item style="background-color: #ECF0F1;">
+            <q-btn flat label="❌ 关闭" @click="closeSider" />
           </q-item>
         </q-list>
       </q-card>
     </q-slide-transition>
 
     <div class="chat-input-container">
-      <q-input v-model="message" label="Message" class="bottom-input" @keyup.enter="sendMessage"
-        :placeholder="message_type == 4 ? '请输入网页链接' : '请输入内容'">
+      <q-input v-model="message" :label="message_isReply == 1 ? message_Reply : '消息'" class="bottom-input"
+        @keyup.enter="sendMessage" :placeholder="message_type == 4 ? '请输入网页链接' : '请输入内容'">
         <q-expansion-item v-model="expansionVisible" style="position: absolute; bottom: 5px; right: 10px;">
           <q-list bordened vertical>
+            <q-item style="background-color: #ECF0F1;" v-if="message_isReply == 1">
+              <q-btn flat label="❌ 取消回复" @click="cancelReply" />
+            </q-item>
             <q-item style="background-color: #ECF0F1;">
               <q-btn flat label="📝 文字" @click="editTypeText" />
             </q-item>
@@ -188,7 +201,8 @@ export default {
   data() {
     return {
       messages: [],
-      message: '', message_type: '1',
+      ws_action: 'send',
+      message: '', message_type: '1', message_isReply: false, message_Reply: '',
       name: '', Id: '', avatar_url: '', bio: '', birthday: '',
       ws: null,
       isConnected: false,
@@ -201,7 +215,7 @@ export default {
       badges: [], all_badges: [],
       newChatroomName: '', newChatroomOwner: '', newChatroomModerator: '',
       expansionX: 0, expansionY: 0,
-      edit_message_id: '', edit_name_id: '',
+      edit_message_id: '', edit_name_id: '', edit_name: '',
     };
   },
   mounted() {
@@ -237,9 +251,28 @@ export default {
         console.log("WebSocket connection established");
       };
       this.ws.onmessage = (event) => {
-        const newMessage = JSON.parse(event.data);
-        this.messages.push(newMessage);
-        this.fetchMessages();
+        const data = JSON.parse(event.data);
+        if (data.success === false) {
+            console.log(data)
+            this.$q.notify({
+              type: 'negative',
+              message: data.message,
+              timeout: 1000,
+            });
+            console.log("Error:", data.message);
+        }
+        if (data.action == 'newMessage') {
+          const newMessage = JSON.parse(event.data);
+          this.messages.push(newMessage);
+          this.fetchMessages();
+        }
+        if (data.action == "messageRevoked") {
+          this.$q.notify({
+            type: 'positive',
+            message: data.message,
+          });
+          this.fetchMessages();
+        }
       };
       this.ws.onclose = () => {
         this.isConnected = false;
@@ -300,7 +333,7 @@ export default {
     sendMessage() {
       if (this.isConnected && this.message && this.name) {
         const currentTime = new Date().toLocaleTimeString();
-        const msg = { chatroom: this.current_chatroom, Id: this.Id, name: this.name, avatar: this.avatar_url, message: this.message, currentTime: currentTime, message_type: parseInt(this.message_type, 10) };
+        const msg = { action: this.ws_action, chatroom: this.current_chatroom, Id: this.Id, name: this.name, avatar: this.avatar_url, message: this.message, currentTime: currentTime, message_type: parseInt(this.message_type, 10), message_isReply: this.message_isReply, message_Reply: this.message_Reply };
         this.ws.send(JSON.stringify(msg));
         this.message = '';
         this.message_type = 1;
@@ -450,6 +483,7 @@ export default {
             });
             this.newChatroomDialogVisible = false;
             this.fetchChatrooms();
+            window.location.reload()
           })
           .catch(error => {
             this.$q.notify({
@@ -559,12 +593,47 @@ export default {
       console.log("siderVisible", this.siderVisible);
       this.siderVisible = !this.siderVisible;
     },
-    clickMessage(event, messageId, nameId) {
+    clickMessage(event, messageId, nameId, name) {
       this.expansionX = event.clientX;
       this.expansionY = event.clientY;
       this.edit_message_id = messageId;
       this.edit_name_id = nameId;
+      this.edit_name = name
       this.siderVisible = !this.siderVisible
+    },
+    replyMessage(name) {
+      this.message_isReply = true;
+      this.message_Reply = "回复" + name + ":";
+      this.siderVisible = !this.siderVisible
+    },
+    cancelReply() {
+      this.message_isReply = false;
+      this.message_Reply = "";
+      this.expansionVisible = !this.expansionVisible
+    },
+    recallMessage(messageId, nameId) {
+      this.ws_action = 'recall';
+      const token = localStorage.getItem('token');
+      if (this.isConnected) {
+        const recall_msg = { action: this.ws_action, chatroom: this.current_chatroom, Id: this.Id, message_id: messageId, name_id: nameId, token: token };
+        this.ws.send(JSON.stringify(recall_msg));
+      } else {
+        this.$q.notify({
+          color: 'yellow',
+          message: '服务器连接中断，请刷新再试',
+          icon: 'report_problem',
+          position: 'top'
+        });
+        console.log("WebSocket is not connected");
+      }
+      this.ws_action = 'send';
+      this.edit_message_id = '';
+      this.edit_name_id = '';
+      this.edit_name = '';
+      this.siderVisible = !this.siderVisible
+    },
+    closeSider() {
+      this.siderVisible =!this.siderVisible
     },
   }
 };
