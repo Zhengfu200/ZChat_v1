@@ -96,38 +96,40 @@
     </q-dialog>
 
     <div class="chat-container">
-      <q-chat-message v-for="msg in messages" :key="msg.name" :sent="msg.name === name" :name="null" name-html
-        :avatar="msg.avatar_url ? msg.avatar_url : 'https://img.icons8.com/?size=100&id=YXG86oegZMMh&format=png&color=000000'"
-        :stamp="msg.date" @click="clickMessage($event, msg.id, msg.name_id, msg.name)">
-        <div v-if="msg.isReply == 1">{{ msg.reply }}</div>
-        <template v-slot:name>
-          <div v-for="(all_badge, key) in all_badges" :key="key" style="display: flex; gap: 3px;flex-wrap: wrap">
-            <div v-for="(idIndex, value) in all_badge" :key="idIndex">
-              <q-badge v-if="msg.badges && msg.badges.includes(value)" :label="value" :color="getBadgeColor(value)" />
+      <div class="message-container">
+        <q-chat-message v-for="msg in messages" :key="msg.name" :sent="msg.name === name" :name="null" name-html
+          :avatar="msg.avatar_url ? msg.avatar_url : 'https://img.icons8.com/?size=100&id=YXG86oegZMMh&format=png&color=000000'"
+          :stamp="msg.date" @click="clickMessage($event, msg.id, msg.name_id, msg.name)">
+          <div v-if="msg.isReply == 1">{{ msg.reply }}</div>
+          <template v-slot:name>
+            <div v-for="(all_badge, key) in all_badges" :key="key" style="display: flex; gap: 3px;flex-wrap: wrap">
+              <div v-for="(idIndex, value) in all_badge" :key="idIndex">
+                <q-badge v-if="msg.badges && msg.badges.includes(value)" :label="value" :color="getBadgeColor(value)" />
+              </div>
             </div>
+            <span v-html="`<span>${msg.name}</span>`"></span>
+          </template>
+          <span v-if="msg.type == 1">{{ msg.message }}</span>
+          <q-img v-if="msg.type == 2 && msg.message.startsWith('http')" :src="msg.message"
+            @click="openSourceInNewTab(msg.message)" />
+          <q-video v-if="msg.type == 3 && msg.message.startsWith('http')" :src="msg.message"
+            @click="openSourceInNewTab(msg.message)" :autoplay="false" />
+          <a v-if="msg.type == 4" :href="msg.message.startsWith('http') ? msg.message : 'http://' + msg.message"
+            target="_blank">🔗 {{ msg.message }}</a>
+          <div v-if="msg.type == 5">
+            <span>📁 文件</span>
+            <q-btn color="primary" rounded style="margin-left: 5px;" text-color="white" z-index="100"
+              @click=" downloadFile(msg.message)">
+              直链下载
+            </q-btn>
           </div>
-          <span v-html="`<span>${msg.name}</span>`"></span>
-        </template>
-        <span v-if="msg.type == 1">{{ msg.message }}</span>
-        <q-img v-if="msg.type == 2 && msg.message.startsWith('http')" :src="msg.message"
-          @click="openSourceInNewTab(msg.message)" />
-        <q-video v-if="msg.type == 3 && msg.message.startsWith('http')" :src="msg.message"
-          @click="openSourceInNewTab(msg.message)" :autoplay="false" />
-        <a v-if="msg.type == 4" :href="msg.message.startsWith('http') ? msg.message : 'http://' + msg.message"
-          target="_blank">🔗 {{ msg.message }}</a>
-        <div v-if="msg.type == 5">
-          <span>📁 文件</span>
-          <q-btn color="primary" rounded style="margin-left: 5px;" text-color="white"
-            @click=" downloadFile(msg.message)">
-            直链下载
-          </q-btn>
-        </div>
-      </q-chat-message>
+        </q-chat-message>
+      </div>
     </div>
 
     <q-slide-transition>
       <q-card v-if="siderVisible"
-        :style="{ position: 'fixed', left: expansionX + 'px', top: expansionY + 'px', zIndex: 999 }">
+        :style="{ position: 'fixed', left: expansionX + 'px', top: expansionY + 'px', zIndex: 9 }">
         <q-list bordened vertical>
           <q-item style="background-color: #ECF0F1;">
             <q-btn flat label="🔎 查看个人资料" @click="gotoUserInfo(this.edit_name_id)" />
@@ -249,17 +251,24 @@ export default {
       this.ws.onopen = () => {
         this.isConnected = true;
         console.log("WebSocket connection established");
+        this.$q.notify({
+          type: 'positive',
+          position: 'top',
+          message: '服务器连接成功',
+          timeout: 1000,
+        });
+
       };
       this.ws.onmessage = (event) => {
         const data = JSON.parse(event.data);
         if (data.success === false) {
-            console.log(data)
-            this.$q.notify({
-              type: 'negative',
-              message: data.message,
-              timeout: 1000,
-            });
-            console.log("Error:", data.message);
+          console.log(data)
+          this.$q.notify({
+            type: 'negative',
+            message: data.message,
+            timeout: 1000,
+          });
+          console.log("Error:", data.message);
         }
         if (data.action == 'newMessage') {
           const newMessage = JSON.parse(event.data);
@@ -276,6 +285,12 @@ export default {
       };
       this.ws.onclose = () => {
         this.isConnected = false;
+        this.$q.notify({
+          type: 'negative',
+          position: 'top',
+          message: '服务器连接中断，请刷新再试',
+          timeout: 1000,
+        });
         console.log("WebSocket connection closed");
       };
       this.ws.onerror = (err) => {
@@ -340,11 +355,11 @@ export default {
       } else {
         this.$q.notify({
           color: 'yellow',
-          message: '服务器连接中断，请刷新再试',
+          message: '服务器连接中断，尝试重连……',
           icon: 'report_problem',
           position: 'top'
         });
-        console.log("WebSocket is not connected");
+        this.connetWebsocket();
       }
     },
     updateTime() {
@@ -583,19 +598,21 @@ export default {
       console.error('文件上传失败:', err);
     },
     downloadFile(url) {
-      console.log(url);
       const link = document.createElement('a');
       link.href = url;
       link.download = url.split('/').pop();
       link.click();
     },
     openSider() {
-      console.log("siderVisible", this.siderVisible);
       this.siderVisible = !this.siderVisible;
     },
     clickMessage(event, messageId, nameId, name) {
+      const windowHeight = window.innerHeight;
       this.expansionX = event.clientX;
-      this.expansionY = event.clientY;
+      if(event.clientY + 200 > windowHeight){
+        console.log("overflow")
+        this.expansionY  = event.clientY - 200;
+      }else{this.expansionY = event.clientY;}
       this.edit_message_id = messageId;
       this.edit_name_id = nameId;
       this.edit_name = name
@@ -633,7 +650,7 @@ export default {
       this.siderVisible = !this.siderVisible
     },
     closeSider() {
-      this.siderVisible =!this.siderVisible
+      this.siderVisible = !this.siderVisible
     },
   }
 };
@@ -648,6 +665,11 @@ export default {
   bottom: 20px;
   width: 100%;
   padding: 0 20px;
+}
+
+.chat-container {
+  padding-bottom: 50px;
+  box-sizing: border-box;
 }
 
 .bottom-input {

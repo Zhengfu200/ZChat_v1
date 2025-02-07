@@ -1,6 +1,7 @@
 <template>
     <div style="background-color: #ECF0F1;">
         <q-bar class="bg-primary">
+            <q-btn dense flat :icon="matArrowBack" color="white" @click="back" />
             <div class="text-weight-bold text-white">
                 Account
             </div>
@@ -103,6 +104,7 @@
     </div>
 </template>
 <script>
+import { matArrowBack } from '@quasar/extras/material-icons';
 import { QMarkdown } from '@quasar/quasar-ui-qmarkdown'
 export default {
     components: {
@@ -121,8 +123,9 @@ export default {
             AboutMe: "",
             markdownContent: "",
             editsection: '',
-            edit:'',
+            edit: '',
             showEditSection_1: false,
+            matArrowBack,
         }
     },
     mounted() {
@@ -189,11 +192,11 @@ export default {
         changeEditSection_1() {
             this.showEditSection_1 = !this.showEditSection_1;
         },
-        editgender(){
+        editgender() {
             this.editsection = "gender";
             this.showEditSection_1 = !this.showEditSection_1;
         },
-        editBirthday(){
+        editBirthday() {
             this.editsection = "birthday";
             this.showEditSection_1 = !this.showEditSection_1;
         },
@@ -213,19 +216,17 @@ export default {
             this.editsection = "AboutMe";
             this.showEditSection_1 = !this.showEditSection_1;
         },
-        uploadEdit(){
+        uploadEdit() {
             const requestBody = {
                 token: this.token,
                 Id: this.Id,
                 editsection: this.editsection,
                 edit: this.edit,
             }
-
             this.update(requestBody);
         },
-        update(requestBody){
+        update(requestBody) {
             const queryParams = new URLSearchParams(requestBody).toString();
-
             fetch(`http://localhost:3000/api/editAccount?${queryParams}`, {
                 method: 'POST',
                 headers: {
@@ -242,7 +243,6 @@ export default {
                     return response.json();
                 })
                 .then(data => {
-                    console.log('用户名更新成功:', data);
                     this.$q.notify({
                         type: 'positive',
                         message: '更新成功',
@@ -250,6 +250,10 @@ export default {
                         timeout: 3000
                     });
                     this.fetchAccountInfo();
+                    if (data.token) {
+                        localStorage.setItem('token', data.token);
+                    }
+                    this.showEditSection_1 = !this.showEditSection_1;
                 })
                 .catch(error => {
                     console.error('请求失败:', error);
@@ -260,6 +264,9 @@ export default {
                         timeout: 3000
                     });
                 });
+        },
+        back() {
+            this.$router.go(-1);
         }
     },
 

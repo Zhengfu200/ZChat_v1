@@ -54,7 +54,17 @@ const editAccount = (req, res) => {
                             console.log(err);
                             return res.status(500).json({ success: false, message: 'Failed to update' });
                         }
-                        return res.status(200).json({ success: true, message: ' updated successfully' });
+                        user_db.get('SELECT * FROM users WHERE id =?', [Id], (err, row) => {
+                            if (err) {
+                                console.log(err);
+                                return res.status(500).json({ success: false, message: 'fail to update token' });
+                            }
+
+                            const token = jwt.sign({ userId: row.id, username: row.username, user_avatar: row.avatar }, JWT_SECRET, { expiresIn: '1h' });
+
+                            return res.status(200).json({ success: true, message:'updated successfully', token: token });
+
+                        })
                     });
                 }
                 if(editsection == 'Banner'){
@@ -96,9 +106,6 @@ const editAccount = (req, res) => {
                         }
                         return res.status(200).json({ success: true, message: ' updated successfully' });
                     });
-                }
-                else{
-                    return res.status(401).json({ success: false, message: '未指定修改位置,请重新尝试！' });
                 }
             })
         }
