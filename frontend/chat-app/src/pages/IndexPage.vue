@@ -37,44 +37,39 @@
     </q-dialog>
 
     <!--一级侧滑栏-->
-    <q-drawer v-model="leftDrawerOpen_1" side="left" style="width: 25vw;" bordered>
+    <q-drawer v-model="leftDrawerOpen_1" side="left" style="width: 25vw; padding: 10px;" bordered>
       <q-card>
         <q-card-section class="avatar-section text-center">
           <q-avatar>
             <img
               :src="avatar_url ? avatar_url : 'https://img.icons8.com/?size=100&id=YXG86oegZMMh&format=png&color=000000'" />
           </q-avatar>
-          <div style="margin-top: 10px;">🖖 Name : {{ name }}</div>
-          <div>
-            <span v-if="bio === null">🥰 Bio : 未设置</span>
-            <span v-else>🥰 Bio : {{ bio }}</span>
-          </div>
-          <div>
-            <span v-if="bio === null">🥳 Birthday : 未设置</span>
-            <span v-else>🥳 Birthday : {{ birthday }}</span>
-          </div>
+          <div style="margin-top: 10px; font-weight: 500; overflow: hidden;">🖖 欢迎回来，{{ name }}</div>
         </q-card-section>
       </q-card>
-      <q-separator inset />
-      <q-card-section>
-        <q-expansion-item expand-separator icon="chat" label="Chatrooms  " caption="点击展开聊天室">
-          <q-list separator bordened>
-            <q-separator />
-            <q-item v-for="chatroom in chatrooms" :key="chatroom.id" clickable @click="switchChatRoom(chatroom.id)">
-              <q-item-section :class="chatroom.id === current_chatroom_id ? 'text-primary' : ''">
-                {{ chatroom.name }}
-              </q-item-section>
-            </q-item>
-          </q-list>
-        </q-expansion-item>
-      </q-card-section>
-      <q-separator inset />
-      <q-card-section>
-        <q-btn flat class="full-width no-border" @click="newChatroomDialogVisible = true">💬 新建聊天室</q-btn>
-        <q-btn flat class="full-width no-border" @click="gotoAccountInfo">👋 个人资料</q-btn>
-        <q-btn flat class="full-width no-border" @click="gotoLogin">👉 登录</q-btn>
-        <q-btn flat class="full-width no-border" @click="toggleDrawer">⬅️ 关闭</q-btn>
-      </q-card-section>
+      <q-card style="margin-top: 10px;">
+        <q-card-section>
+          <q-expansion-item expand-separator icon="chat" label="Chatrooms  " caption="点击展开聊天室">
+            <q-list separator bordened>
+              <q-separator />
+              <q-item v-for="chatroom in chatrooms" :key="chatroom.id" clickable @click="switchChatRoom(chatroom.id)">
+                <q-item-section :class="chatroom.id === current_chatroom_id ? 'text-primary' : ''">
+                  {{ chatroom.name }}
+                </q-item-section>
+              </q-item>
+            </q-list>
+          </q-expansion-item>
+        </q-card-section>
+      </q-card>
+      <q-card style="margin-top: 10px;">
+        <q-card-section>
+          <q-btn flat class="full-width no-border" @click="newChatroomDialogVisible = true">💬 新建聊天室</q-btn>
+          <q-btn flat class="full-width no-border" @click="gotoAccountInfo">👋 个人资料</q-btn>
+          <q-btn flat class="full-width no-border" @click="gotoLogin">👉 登录</q-btn>
+          <q-btn flat class="full-width no-border" @click="goToServerModerator">🖊️ 修改聊天室</q-btn>
+          <q-btn flat class="full-width no-border" @click="toggleDrawer">⬅️ 关闭</q-btn>
+        </q-card-section>
+      </q-card>
     </q-drawer>
 
     <!--新建聊天室对话框-->
@@ -148,8 +143,10 @@
     </q-slide-transition>
 
     <div class="chat-input-container">
-      <q-input v-model="message" :label="message_isReply == 1 ? message_Reply : '消息'" class="bottom-input"
-        @keyup.enter="sendMessage" :placeholder="message_type == 4 ? '请输入网页链接' : '请输入内容'">
+      <q-btn :icon="InputContainerVisible ? matChevronRight : matChevronLeft" round class="send-btn q-btn-shadow"
+        @click="hideInputContainer" style="background-color: #ECF0F1; margin-right: 10px;" />
+      <q-input v-if="InputContainerVisible" v-model="message" :label="message_isReply == 1 ? message_Reply : '消息'"
+        class="bottom-input" @keyup.enter="sendMessage" :placeholder="message_type == 4 ? '请输入网页链接' : '请输入内容'">
         <q-expansion-item v-model="expansionVisible" style="position: absolute; bottom: 5px; right: 10px;">
           <q-list bordened vertical>
             <q-item style="background-color: #ECF0F1;" v-if="message_isReply == 1">
@@ -175,7 +172,8 @@
       </q-input>
       <q-btn round icon="navigation" class="send-btn q-btn-shadow" @click="sendMessage"
         style="background-color: #ECF0F1;" />
-      <q-btn round icon="add" class="send-btn q-btn-shadow" @click="editType" style="background-color: #ECF0F1;" />
+      <q-btn v-if="InputContainerVisible" round icon="add" class="send-btn q-btn-shadow" @click="editType"
+        style="background-color: #ECF0F1;" />
     </div>
 
     <q-dialog v-model="uploadFileDialogVisible_1">
@@ -197,6 +195,7 @@
 
 <script>
 import { jwtDecode } from 'jwt-decode';
+import { matChevronRight, matChevronLeft } from '@quasar/extras/material-icons';
 
 
 export default {
@@ -209,7 +208,7 @@ export default {
       ws: null,
       isConnected: false,
       currentTime: '',
-      leftDrawerOpen_1: false, newChatroomDialogVisible: false, expansionVisible: false, uploadFileDialogVisible_1: false, uploadFileDialogVisible_2: false, uploadFileDialogVisible_3: false, siderVisible: false,
+      leftDrawerOpen_1: false, newChatroomDialogVisible: false, expansionVisible: false, uploadFileDialogVisible_1: false, uploadFileDialogVisible_2: false, uploadFileDialogVisible_3: false, siderVisible: false, InputContainerVisible: true,
       current_chatroom: '', current_chatroom_id: '1',
       chatrooms: [],
       showDetails: false,
@@ -218,6 +217,7 @@ export default {
       newChatroomName: '', newChatroomOwner: '', newChatroomModerator: '',
       expansionX: 0, expansionY: 0,
       edit_message_id: '', edit_name_id: '', edit_name: '',
+      matChevronRight, matChevronLeft,
     };
   },
   mounted() {
@@ -352,14 +352,28 @@ export default {
         this.ws.send(JSON.stringify(msg));
         this.message = '';
         this.message_type = 1;
-      } else {
+      } else if (!this.isConnected) {
         this.$q.notify({
-          color: 'yellow',
+          color: 'negative ',
           message: '服务器连接中断，尝试重连……',
           icon: 'report_problem',
           position: 'top'
         });
         this.connetWebsocket();
+      } else if (!this.name) {
+        this.$q.notify({
+          color: 'negative',
+          message: '用户数据获取错误，请重新登录!',
+          icon: 'report_problem',
+          position: 'top'
+        });
+      } else if (!this.message) {
+        this.$q.notify({
+          color: 'negative',
+          message: '无法发送空消息!',
+          icon: 'report_problem',
+          position: 'top',
+        })
       }
     },
     updateTime() {
@@ -381,74 +395,14 @@ export default {
       this.showDetails = !this.showDetails;
     },
     goToServerModerator() {
-      const token = localStorage.getItem('token');
-      console.log(this.current_chatroom_id);
-      if (!token) {
-        this.$q.notify({
-          color: 'negative',
-          message: 'no token found, please try login again',
-          icon: 'report_problem',
-          position: 'top'
-        });
-        return;
-      }
-      fetch('http://localhost:3000/api/verifyChatroomOwner', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
+      this.$router.push({
+        name: 'server-moderator',
+        query: {
           chatroom_id: this.current_chatroom_id,
-        })
-      })
-        .then(response => {
-          if (response.status === 401) {
-            this.$q.notify({
-              color: 'negative',
-              message: 'Token is required',
-              icon: 'error',
-              position: 'top'
-            });
-            throw new Error('Token is required');
-          } else if (response.status === 402) {
-            this.$q.notify({
-              color: 'negative',
-              message: 'Token is invalid,please try to login again!',
-              icon: 'error',
-              position: 'top'
-            });
-            throw new Error('Token is invalid');
-          }
-          return response.json();
-        })
-        .then(data => {
-          if (data.isOwner) {
-            this.$router.push({
-              name: 'server-moderator',
-              query: {
-                chatroom_id: this.current_chatroom_id,
-                chatroom: this.current_chatroom,
-                owner: this.current_chatroom_owner
-              }
-            });
-          } else {
-            this.$q.notify({
-              color: 'negative',
-              message: 'You are not the owner of this chatroom!',
-              icon: 'report_problem',
-              position: 'top'
-            });
-          }
-        })
-        .catch(error => {
-          this.$q.notify({
-            color: 'negative',
-            message: 'An error occurred:', error,
-            icon: 'error',
-            position: 'top'
-          });
-        });
+          chatroom: this.current_chatroom,
+          owner: this.current_chatroom_owner
+        }
+      });
     },
     getBadgeColor(value) {
       if (value == 'owner') {
@@ -609,10 +563,10 @@ export default {
     clickMessage(event, messageId, nameId, name) {
       const windowHeight = window.innerHeight;
       this.expansionX = event.clientX;
-      if(event.clientY + 200 > windowHeight){
+      if (event.clientY + 200 > windowHeight) {
         console.log("overflow")
-        this.expansionY  = event.clientY - 200;
-      }else{this.expansionY = event.clientY;}
+        this.expansionY = event.clientY - 200;
+      } else { this.expansionY = event.clientY; }
       this.edit_message_id = messageId;
       this.edit_name_id = nameId;
       this.edit_name = name
@@ -652,6 +606,9 @@ export default {
     closeSider() {
       this.siderVisible = !this.siderVisible
     },
+    hideInputContainer() {
+      this.InputContainerVisible = !this.InputContainerVisible
+    }
   }
 };
 </script>

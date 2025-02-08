@@ -9,6 +9,7 @@ const crypto = require('crypto');
 const fs = require('fs');
 const { accountInfo } = require('./js/accountinfo')
 const { editAccount } = require('./js/editAccount');
+const { addModerator } = require('./js/addModerator');
 const multer = require('multer');
 
 //聊天室管理数据库
@@ -241,7 +242,7 @@ wss.on('connection', (ws) => {
                 } else {
                   wss.clients.forEach((client) => {
                     if (client.readyState === ws.OPEN) {
-                      client.send(JSON.stringify({ action: 'newMessage',name, Id, message, avatar, currentTime, badges, message_type, message_isReply, message_Reply }));
+                      client.send(JSON.stringify({ action: 'newMessage', name, Id, message, avatar, currentTime, badges, message_type, message_isReply, message_Reply }));
                     }
                   });
                 }
@@ -267,12 +268,12 @@ wss.on('connection', (ws) => {
                 return ws.send(JSON.stringify({ success: false, message: '找不到该消息' }));
               }
               messages_db.run("UPDATE messages SET message = ?, type = ? WHERE id = ?", ['原消息已撤回', 1, message_id], function (err) {
-                if(err){
+                if (err) {
                   console.error('撤回消息失败：', err);
-                }else{
+                } else {
                   wss.clients.forEach((client) => {
                     if (client.readyState === ws.OPEN) {
-                      client.send(JSON.stringify({ action: 'messageRevoked',success: true, message: '消息已撤回' }));
+                      client.send(JSON.stringify({ action: 'messageRevoked', success: true, message: '消息已撤回' }));
                     }
                   });
                 }
@@ -387,7 +388,7 @@ app.post('/api/mod', (req, res) => {
             });
           });
         } else {
-          return res.status(500).json({ error: 'You do not have the necessary permissions to modify this chatroom' });
+          return res.status(500).json({ error: '你无权更改聊天室信息' });
         }
       });
     });
@@ -567,6 +568,58 @@ app.get('/file/:filename', (req, res) => {
   }
 })
 
+//获取聊天室管理员列表
+app.get('/api/chatroomModerators', (req, res) => {
+  const chatroom_id = req.query.chatroom_id;
+  if (!chatroom_id) {
+    return res.status(400).json({ error: 'Chatroom Id is required' });
+  }
+
+  chatroomsDb.get("SELECT * FROM chatrooms WHERE id =?", [chatroom_id], (err, row) => {
+    if (err) {
+      return res.status(500).json({ error: '查询聊天室信息失败' });
+    }
+    if (!row) {
+      return res.status(404).json({ error: '找不到匹配的聊天室' });
+    }
+    const dbPath = row.db_path
+    // 如果数据库文件不存在，返回错误
+    if (!fs.existsSync(dbPath)) {
+      return res.status(404).json({ error: 'Chatroom not found' });
+    }
+
+    const messages_db = new sqlite3.Database(dbPath);
+
+    messages_db.get("SELECT moderator FROM badges LIMIT 1", (err, badgeRow) => {
+      if (err) {
+        res.status(500).json({ error: err.message });
+        return;
+      }
+      if (!badgeRow || !badgeRow.moderator) {
+        return res.status(404).json({ error: '没有找到对应的 moderator 数据' });
+      }
+      try {
+        let moderatorList = JSON.parse(badgeRow.moderator);
+        let resultList = moderatorList.map(item => parseInt(item, 10));
+        const placeholders = resultList.map(() => '?').join(',');
+        const query = `SELECT username FROM users WHERE id IN (${placeholders})`;
+
+        user_db.all(query, resultList, (err, rows) => {
+          if (err) {
+            return res.status(500).json({ error: '查询 users 表失败' });
+          }
+          const usernameList = rows.map(row => row.username);
+          res.json({ moderators: usernameList });
+        });
+      } catch (parseErr) {
+        return res.status(500).json({ error: '解析 moderator 数据失败' });
+      }
+    });
+  });
+});
+
+//添加管理员
+app.post('/api/addModerator', addModerator);
 
 function getMimeType(filename) {
   const ext = path.extname(filename).toLowerCase();
@@ -588,6 +641,8 @@ function getMimeType(filename) {
       return 'application/octet-stream';
   }
 }
+
+
 
 
 //生成随机文件名

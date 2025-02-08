@@ -25,12 +25,12 @@
         </q-card>
 
         <q-card style="margin-top: 100px; width: 80vw; justify-self: center;">
-            <q-card-section style="position: relative;">
+            <q-card-section style="position: relative;overflow: hidden;">
                 <span style="font-weight: bold;font-size: 1.0rem;">🤗 Name: </span>
                 <span>{{ name }}</span>
             </q-card-section>
             <q-separator inset />
-            <q-card-section>
+            <q-card-section  style="overflow: hidden;">
                 <span style="font-weight: bold;font-size: 1.0rem;">😶 Gender: </span>
                 <span v-if="gender">{{ gender }}</span>
                 <span v-else>未设置</span>
@@ -38,7 +38,7 @@
                     style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%);" />
             </q-card-section>
             <q-separator inset />
-            <q-card-section>
+            <q-card-section  style="overflow: hidden;">
                 <span style="font-weight: bold;font-size: 1.0rem;">🎂 Birthday: </span>
                 <span v-if="birthday">{{ birthday }}</span>
                 <span v-else>未设置</span>
@@ -54,7 +54,7 @@
                     style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%);" />
             </q-card-section>
             <q-separator inset />
-            <q-card-section>
+            <q-card-section style="overflow: hidden;">
                 <span style="font-weight: bold;font-size: 1.0rem;">🖼️ Avatar: </span>
                 <a v-if="avatar" :href="avatar" target="_blank">{{ avatar }}</a>
                 <span v-else>未设置</span>
@@ -62,7 +62,7 @@
                     style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%);" />
             </q-card-section>
             <q-separator inset />
-            <q-card-section>
+            <q-card-section style="overflow: hidden;">
                 <span style="font-weight: bold;font-size: 1.0rem;">🖼️ Banner: </span>
                 <a v-if="banner" :href="banner" target="_blank">{{ banner }}</a>
                 <span v-else>未设置</span>
@@ -72,7 +72,7 @@
         </q-card>
 
         <q-card style="margin-top: 20px; width: 80vw; justify-self: center;">
-            <q-card-section>
+            <q-card-section style="overflow: hidden;">
                 <div class="text-h6">👋 About Me:</div>
                 <q-btn icon="edit" size="13px" color="indigo" @click="editAboutMe" round
                     style="position: absolute; right: 10px; top: 10px; " />
