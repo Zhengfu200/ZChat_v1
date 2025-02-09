@@ -37,6 +37,7 @@
                                         <p style="font-weight: 500;"><q-badge rounded color="red"
                                                 style="margin-right: 10px;" /> {{ moderator }}</p>
                                     </q-item-section>
+                                    <q-btn dense flat icon="delete" color="red" @click="deleteModerator (moderator)" />
                                 </q-item>
                             </q-list>
                             <q-separator inset />
@@ -146,7 +147,6 @@ export default {
             this.$router.go(-1);
         },
         async getModerator() {
-
             try {
                 const url = `http://localhost:3000/api/chatroomModerators?chatroom_id=${this.chatroom_id}`;
                 const response = await fetch(url);
@@ -169,32 +169,81 @@ export default {
 
             const payload = {
                 chatroom_id: this.chatroom_id,
-                moderator_add: this.moderator_add
+                moderator_add: this.moderator_add,
+                token: token,
             };
-            const response = await fetch('http://localhost:3000/api/addModerator', {
+
+            fetch('http://localhost:3000/api/addModerator', {
                 method: 'POST',
                 headers: {
-                    'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify(payload)
-            });
-
-            const data = await response.json();
-            if (response.ok) {
+                body: JSON.stringify(payload)   
+            })
+            .then(async (response) => {
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error);
+                }
+                const data = await response.json();
                 this.$q.notify({
                     color: 'green',
-                    message: data.message || '管理员添加成功',
+                    message: data.message,
                     icon: 'check_circle'
                 });
-                this.getModerator(); // 刷新管理员列表
-            } else {
+                this.getModerator();
+            })
+            .then(data => {
+                console.log('success', data);
+            })
+           .catch(error => {
                 this.$q.notify({
                     color: 'red',
-                    message: data.error || '请求失败，请重试',
+                    message: error.message,
                     icon: 'error'
                 });
-            }
+            });
+        },
+        async deleteModerator(moderator_delete) {
+            console.log(moderator_delete)
+            const token = localStorage.getItem('token');
+
+            const payload = {
+                chatroom_id: this.chatroom_id,
+                moderator_delete: moderator_delete,
+                token: token,
+            };
+
+            fetch('http://localhost:3000/api/deleteModerator', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(payload)   
+            })
+            .then(async (response) => {
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error);
+                }
+                const data = await response.json();
+                this.$q.notify({
+                    color: 'green',
+                    message: data.message,
+                    icon: 'check_circle'
+                });
+                this.getModerator();
+            })
+            .then(data => {
+                console.log('success', data);
+            })
+           .catch(error => {
+                this.$q.notify({
+                    color: 'red',
+                    message: error.message,
+                    icon: 'error'
+                });
+            });
         }
     }
 };

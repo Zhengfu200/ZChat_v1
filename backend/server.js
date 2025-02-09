@@ -9,7 +9,7 @@ const crypto = require('crypto');
 const fs = require('fs');
 const { accountInfo } = require('./js/accountinfo')
 const { editAccount } = require('./js/editAccount');
-const { addModerator } = require('./js/addModerator');
+const { addModerator, deleteModerator } = require('./js/addModerator');
 const multer = require('multer');
 
 //聊天室管理数据库
@@ -621,6 +621,9 @@ app.get('/api/chatroomModerators', (req, res) => {
 //添加管理员
 app.post('/api/addModerator', addModerator);
 
+//删除管理员
+app.post('/api/deleteModerator', deleteModerator);
+
 function getMimeType(filename) {
   const ext = path.extname(filename).toLowerCase();
   switch (ext) {
@@ -641,8 +644,6 @@ function getMimeType(filename) {
       return 'application/octet-stream';
   }
 }
-
-
 
 
 //生成随机文件名
