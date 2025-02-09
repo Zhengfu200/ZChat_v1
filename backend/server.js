@@ -10,6 +10,7 @@ const fs = require('fs');
 const { accountInfo } = require('./js/accountinfo')
 const { editAccount } = require('./js/editAccount');
 const { addModerator, deleteModerator } = require('./js/addModerator');
+const { addBanAccount, allBanAccount, deleteBanAccount } = require('./js/banAccount');
 const multer = require('multer');
 
 //聊天室管理数据库
@@ -207,49 +208,59 @@ wss.on('connection', (ws) => {
       if (action == 'send') {
         console.log('send message')
         const { name, message, avatar, currentTime, message_type, message_isReply, message_Reply } = JSON.parse(data);
-        //检索badges表
-        messages_db.all("PRAGMA table_info(badges)", (err, columns) => {
+        messages_db.get('SELECT id FROM ban WHERE id = ?', [Id], (err, row) => {
           if (err) {
-            console.error('查询badges表字段失败：', err);
-            return;
+            console.log("查询ban表失败")
           }
-          const fieldNames = columns.map(col => col.name);
 
-          messages_db.get("SELECT * FROM badges", (err, badgeRow) => {
-            if (err) {
-              console.error('查询 badges 表失败:', err);
-              return;
-            }
-            //检索badges字段中的内容，并于当前用户id匹配
-            if (badgeRow) {
-              fieldNames.forEach(field => {
-                if (badgeRow[field]) {
-                  try {
-                    const idsList = JSON.parse(badgeRow[field]);
-                    if (Array.isArray(idsList) && idsList.includes(Id.toString())) {
-                      badges.push(field);
-                    } else {
-                    }
-                  } catch (err) {
-                    console.error('解析 badges 表数据失败:', err);
-                    return;
-                  }
-                }
-              })
-              messages_db.run("INSERT INTO messages (name, name_id, message, avatar_url, date, badges, type, isReply, reply) VALUES (?, ? ,?, ?, ?, ?, ?, ?, ?)", [name, Id, message, avatar, currentTime, JSON.stringify(badges), message_type, message_isReply, message_Reply], function (err) {
+          if (!row) {
+            messages_db.all("PRAGMA table_info(badges)", (err, columns) => {
+              if (err) {
+                console.error('查询badges表字段失败：', err);
+                return;
+              }
+              const fieldNames = columns.map(col => col.name);
+
+              messages_db.get("SELECT * FROM badges", (err, badgeRow) => {
                 if (err) {
-                  console.error(err);
-                } else {
-                  wss.clients.forEach((client) => {
-                    if (client.readyState === ws.OPEN) {
-                      client.send(JSON.stringify({ action: 'newMessage', name, Id, message, avatar, currentTime, badges, message_type, message_isReply, message_Reply }));
+                  console.error('查询 badges 表失败:', err);
+                  return;
+                }
+                //检索badges字段中的内容，并于当前用户id匹配
+                if (badgeRow) {
+                  fieldNames.forEach(field => {
+                    if (badgeRow[field]) {
+                      try {
+                        const idsList = JSON.parse(badgeRow[field]);
+                        if (Array.isArray(idsList) && idsList.includes(Id.toString())) {
+                          badges.push(field);
+                        } else {
+                        }
+                      } catch (err) {
+                        console.error('解析 badges 表数据失败:', err);
+                        return;
+                      }
+                    }
+                  })
+                  messages_db.run("INSERT INTO messages (name, name_id, message, avatar_url, date, badges, type, isReply, reply) VALUES (?, ? ,?, ?, ?, ?, ?, ?, ?)", [name, Id, message, avatar, currentTime, JSON.stringify(badges), message_type, message_isReply, message_Reply], function (err) {
+                    if (err) {
+                      console.error(err);
+                    } else {
+                      wss.clients.forEach((client) => {
+                        if (client.readyState === ws.OPEN) {
+                          client.send(JSON.stringify({ action: 'newMessage', name, Id, message, avatar, currentTime, badges, message_type, message_isReply, message_Reply }));
+                        }
+                      });
                     }
                   });
                 }
-              });
-            }
-          })
-        })
+              })
+            })
+          } else {
+            console.log("用户被封禁")
+            ws.send(JSON.stringify({ success: false, message: '你已被禁言' }));
+          }
+        });
       } else if (action == 'recall') {
         const { message_id, name_id, token } = JSON.parse(data);
         jwt.verify(token, JWT_SECRET, (err, decoded) => {
@@ -480,7 +491,12 @@ app.post('/api/CreateChatRoom', (req, res) => {
             console.error('Error creating badges table:', err);
             return res.status(500).json({ error: 'Failed to create badges table' });
           }
-
+          db.run(`
+            CREATE TABLE IF NOT EXISTS ban (
+              id INTEGER,
+              name TEXT
+            );
+          `);
           // 在 badges 表中插入数据
           const insertBadges = `
             INSERT INTO badges (owner, moderator)
@@ -583,7 +599,6 @@ app.get('/api/chatroomModerators', (req, res) => {
       return res.status(404).json({ error: '找不到匹配的聊天室' });
     }
     const dbPath = row.db_path
-    // 如果数据库文件不存在，返回错误
     if (!fs.existsSync(dbPath)) {
       return res.status(404).json({ error: 'Chatroom not found' });
     }
@@ -596,7 +611,7 @@ app.get('/api/chatroomModerators', (req, res) => {
         return;
       }
       if (!badgeRow || !badgeRow.moderator) {
-        return res.status(404).json({ error: '没有找到对应的 moderator 数据' });
+        return;
       }
       try {
         let moderatorList = JSON.parse(badgeRow.moderator);
@@ -623,6 +638,15 @@ app.post('/api/addModerator', addModerator);
 
 //删除管理员
 app.post('/api/deleteModerator', deleteModerator);
+
+//获取所有禁言用户
+app.get('/api/allBanAccount', allBanAccount);
+
+//添加禁言用户
+app.post('/api/banAccount', addBanAccount);
+
+//删去禁言用户
+app.post('/api/deleteBanAccount', deleteBanAccount);
 
 function getMimeType(filename) {
   const ext = path.extname(filename).toLowerCase();

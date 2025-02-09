@@ -266,7 +266,8 @@ export default {
           this.$q.notify({
             type: 'negative',
             message: data.message,
-            timeout: 1000,
+            position: 'top',
+            timeout: 1000
           });
           console.log("Error:", data.message);
         }

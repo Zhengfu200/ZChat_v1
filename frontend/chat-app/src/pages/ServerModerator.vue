@@ -44,8 +44,29 @@
                         </q-card-section>
 
                         <q-input v-model="moderator_add" label="新增管理员" filled dense class="q-mb-md" />
-                        <q-btn label="Save Changes" :icon="matAddCircleOutline" color="primary"
+                        <q-btn label="Add" :icon="matAddCircleOutline" color="primary"
                             style="margin-right: 10px;" @click="addModerator" />
+                    </q-card>
+
+
+                    <q-card class="q-pa-md" style="max-width: 80vw; width: 100%; margin-top: 10px;">
+                        <q-card-section>
+                            <div class="text-h6 text-center q-mb-md" style="font-weight: 600;">禁言用户</div>
+                            <q-list>
+                                <q-item v-for="account in banAcounts" :key="account.id">
+                                    <q-item-section>
+                                        <p style="font-weight: 500;"><q-badge rounded color="red"
+                                                style="margin-right: 10px;" /> {{ account.name }}</p>
+                                    </q-item-section>
+                                    <q-btn dense flat icon="delete" color="red" @click="deleteBanAccount (account.id)" />
+                                </q-item>
+                            </q-list>
+                            <q-separator inset />
+                        </q-card-section>
+
+                        <q-input v-model="banAccount_add" label="新增禁言用户" filled dense class="q-mb-md" />
+                        <q-btn label="Add" :icon="matAddCircleOutline" color="primary"
+                            style="margin-right: 10px;" @click="addBanAccount" />
                     </q-card>
                 </div>
             </q-page>
@@ -66,7 +87,9 @@ export default {
             owner_modified: '',
             matArrowBack, matAddCircleOutline,
             moderators: [],
+            banAcounts: [],
             moderator_add: '',
+            banAccount_add: '',
         };
     },
     mounted() {
@@ -76,6 +99,7 @@ export default {
         this.chatroom_modified = this.chatroom_previous;
         this.owner_modified = this.owner_previous;
         this.getModerator();
+        this.getBanAccount();
     },
     methods: {
         async saveChanges() {
@@ -155,7 +179,6 @@ export default {
                 }
                 const data = await response.json();
                 this.moderators = data.moderators;
-                console.log(this.moderators);
             } catch (error) {
                 this.$q.notify({
                     color: 'red',
@@ -244,7 +267,105 @@ export default {
                     icon: 'error'
                 });
             });
-        }
+        },
+        async getBanAccount() {
+            try {
+                const url = `http://localhost:3000/api/allBanAccount?chatroom_id=${this.chatroom_id}`;
+                const response = await fetch(url);
+                if (!response.ok) {
+                    throw new Error('请求失败，请重试');
+                }
+                const data = await response.json();
+                this.banAcounts = Array.isArray(data.bannedAccounts) ? data.bannedAccounts : [];
+                console.log(this.banAcounts)
+            } catch (error) {
+                this.$q.notify({
+                    color: 'red',
+                    message: error.message,
+                    icon: 'error'
+                });
+            }
+        },
+        addBanAccount() {
+           const token = localStorage.getItem('token');
+
+            const payload = {
+                chatroom_id: this.chatroom_id,
+                ban_account: this.banAccount_add,
+                token: token,
+            }; 
+
+            fetch('http://localhost:3000/api/banAccount', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(payload)   
+            })
+            .then(async (response) => {
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error);
+                }
+                const data = await response.json();
+                this.$q.notify({
+                    color: 'green',
+                    message: data.message,
+                    icon: 'check_circle'
+                });
+                this.getBanAccount();
+            })
+            .then(data => {
+                console.log('success', data);
+            })
+           .catch(error => {
+                this.$q.notify({
+                    color: 'red',
+                    message: error.message,
+                    icon: 'error'
+                });
+            });
+        },
+        deleteBanAccount(deleteBanAccountId) {
+            const token = localStorage.getItem('token');
+
+            const payload = {
+                chatroom_id: this.chatroom_id,
+                BanAccountId_delete: deleteBanAccountId,
+                token: token,
+            };
+
+            fetch('http://localhost:3000/api/deleteBanAccount', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(payload)   
+            })
+            .then(async (response) => {
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error);
+                }
+                const data = await response.json();
+                this.$q.notify({
+                    color: 'green',
+                    message: data.message,
+                    icon: 'check_circle'
+                });
+                this.getBanAccount();
+            })
+            .then(data => {
+                console.log('success', data);
+            })
+           .catch(error => {
+                this.$q.notify({
+                    color: 'red',
+                    message: error.message,
+                    icon: 'error'
+                });
+            });
+        },
     }
 };
 </script>
