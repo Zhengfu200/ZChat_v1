@@ -1,9 +1,24 @@
 <div align=center><img src="https://img.icons8.com/?size=100&id=7859&format=png&color=000000"></div>
 
 ## ZChat: Build a Public Chatroom with Node.js + Vue3 + Quasar + sqlite3    
+##### 声明——Zchat旨在于任何低配置服务器上搭建在线聊天网站，Zchat_v1中所有接口均为公开接口，请谨慎使用！
 ##### 项目[演示地址](https://zhengfu200.github.io/#/)(仅为2025/2/3日更新的版本，非本仓库最新版本)
 - 前端：![Static Badge](https://img.shields.io/badge/Vue-green)  ![Static Badge](https://img.shields.io/badge/Javascript-yellow)  ![Static Badge](https://img.shields.io/badge/Quasar-blue)
 - 后端：![Static Badge](https://img.shields.io/badge/Node.js-red)  ![Static Badge](https://img.shields.io/badge/Sqlite3-gray)    
+
+---
+
+
+### 截止2025/2/10 Zchat_V1计划中所有功能均已实现，将不再进行实质性更新（仅进行前段UI优化与bug修复）
+
+### ❤️Zchat_v1已实现功能:
+
+- [x] 多种消息发送（文字，图片，视频，链接，网址）
+- [x] 用户管理系统
+- [x] 多频道管理系统（禁言，身份组设置）
+- [x] 支持二次开发   
+
+*（有计划在V2中实现一系列包括用户私聊，网页视频通话等功能，但并非近期）*
 
 ### 📄TODO:
 
@@ -16,7 +31,7 @@
   
 ### 🤯Ideas:
 
-- [ ] 实现频道身份管理系统
+- [x] ~~实现频道身份管理系统~~
 - [x] ~~实现消息回复，撤回机制~~
 
 ### 🪲已知bug:    
@@ -24,7 +39,7 @@
 2.q-video的src如果被设置成任意文字，则会显示错误（将通过画中画形式将整个网页显示在视频组件里）
 
 ### 📝更新日志：
-#### 2025/2/8~9:
+#### 2025/2/10:
 ##### 🙂前端：
 * 实现了聊天室身份组管理系统
 * 实现聊天室删除功能
