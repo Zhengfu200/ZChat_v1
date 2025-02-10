@@ -18,13 +18,24 @@
       </q-bar>
     </q-header>
     <!--聊天室详细信息对话框-->
-    <q-dialog v-model="showDetails">
-      <q-card>
+    <q-dialog v-model="showDetails" backdrop-filter="blur(4px) saturate(150%)">
+      <q-card style="width: 60vw;">
         <q-card-section>
-          <div class="text-h6">Chatroom Details</div>
+          <div class="text-h6">聊天室详情</div>
           <div v-if="current_chatroom">
-            <p><q-badge rounded color="blue" /> Chatroom Name: {{ current_chatroom }}</p>
-            <p><q-badge rounded color="red" /> Owner: {{ current_chatroom_owner }}</p>
+            <p style="font-weight: 600;"><q-badge rounded color="green" /> 🚩 名称 : {{ current_chatroom }}</p>
+            <p style="font-weight: 600;"><q-badge rounded color="red" /> 👑 所有者: {{ current_chatroom_owner }}</p>
+            <div>
+              <p style="font-weight: 600;"><q-badge rounded color="blue" /> 👮 管理员:</p>
+              <p style="font-weight: 400; margin-left: 20px;" v-for="(moderator, index) in current_chatroom_moderator" :key="index" ><q-badge rounded color="blue"/> {{ moderator }}</p>
+            </div>
+            <div>
+              <p style="font-weight: 600;"><q-badge rounded color="purple" /> 🕶️ 身份组:</p>
+              <q-list>
+                <q-badge style="margin-left: 10px;" v-for="badges in allBadges" :key="badges.id" :label="badges"
+                  :color="getBadgeColor(badges)" />
+              </q-list>
+            </div>
           </div>
           <div v-else>
             <p>No chatroom selected.</p>
@@ -176,17 +187,17 @@
         style="background-color: #ECF0F1;" />
     </div>
 
-    <q-dialog v-model="uploadFileDialogVisible_1">
+    <q-dialog v-model="uploadFileDialogVisible_1" backdrop-filter="blur(4px) saturate(150%)">
       <q-uploader url="http://localhost:3000/api/upload" style="max-width: 300px" accept="image/*"
         @uploaded="handleUploadSuccess" @upload-error="handleUploadError" field-name="file" label="📷 Upload Images" />
     </q-dialog>
 
-    <q-dialog v-model="uploadFileDialogVisible_2">
+    <q-dialog v-model="uploadFileDialogVisible_2" backdrop-filter="blur(4px) saturate(150%)">
       <q-uploader url="http://localhost:3000/api/upload" style="max-width: 300px" accept="video/*"
         @uploaded="handleUploadSuccess" @upload-error="handleUploadError" field-name="file" label="📹 Upload Videos" />
     </q-dialog>
 
-    <q-dialog v-model="uploadFileDialogVisible_3">
+    <q-dialog v-model="uploadFileDialogVisible_3" backdrop-filter="blur(4px) saturate(150%)">
       <q-uploader url="http://localhost:3000/api/upload" style="max-width: 300px" @uploaded="handleUploadSuccess"
         @upload-error="handleUploadError" field-name="file" label="📁 Upload Files" />
     </q-dialog>
@@ -209,7 +220,7 @@ export default {
       isConnected: false,
       currentTime: '',
       leftDrawerOpen_1: false, newChatroomDialogVisible: false, expansionVisible: false, uploadFileDialogVisible_1: false, uploadFileDialogVisible_2: false, uploadFileDialogVisible_3: false, siderVisible: false, InputContainerVisible: true,
-      current_chatroom: '', current_chatroom_id: '1',
+      current_chatroom: '', current_chatroom_id: '', current_chatroom_moderator: [], allBadges: [],
       chatrooms: [],
       showDetails: false,
       current_chatroom_owner: '',
@@ -221,6 +232,11 @@ export default {
     };
   },
   mounted() {
+    this.current_chatroom_id = localStorage.getItem('current_chatroom_id');
+    if (this.current_chatroom_id == null) {
+      localStorage.setItem('current_chatroom_id', 1);
+      this.current_chatroom_id = 1;
+    }
     const token = localStorage.getItem('token');
     console.log(token);
     if (!localStorage.getItem('token')) {
@@ -320,7 +336,7 @@ export default {
         .catch(err => {
           this.$q.notify({
             color: 'negative',
-            message: '聊天室获取错误，请检查网络',
+            message: '聊天室获取错误，如果您还未创建任何聊天室，请创建一个！',
             icon: 'report_problem',
             position: 'top'
           });
@@ -390,9 +406,12 @@ export default {
     },
     switchChatRoom(chatroomId) {
       this.current_chatroom_id = chatroomId;
+      localStorage.setItem('current_chatroom_id', chatroomId);
       this.fetchChatrooms();
     },
     toggleDetails() {
+      this.getAllBadges();
+      this.getModerator();
       this.showDetails = !this.showDetails;
     },
     goToServerModerator() {
@@ -609,7 +628,41 @@ export default {
     },
     hideInputContainer() {
       this.InputContainerVisible = !this.InputContainerVisible
-    }
+    },
+    async getModerator() {
+      try {
+        const url = `http://localhost:3000/api/chatroomModerators?chatroom_id=${this.current_chatroom_id}`;
+        const response = await fetch(url);
+        if (!response.ok) {
+          throw new Error('请求失败，请重试');
+        }
+        const data = await response.json();
+        this.current_chatroom_moderator = data.moderators;
+      } catch (error) {
+        this.$q.notify({
+          color: 'red',
+          message: error.message,
+          icon: 'error'
+        });
+      }
+    },
+    async getAllBadges() {
+      try {
+        const url = `http://localhost:3000/api/allBadges?chatroom_id=${this.current_chatroom_id}`;
+        const response = await fetch(url);
+        if (!response.ok) {
+          throw new Error('请求失败，请重试');
+        }
+        const data = await response.json();
+        this.allBadges = Array.isArray(data.fields) ? data.fields : [];
+      } catch (error) {
+        this.$q.notify({
+          color: 'red',
+          message: error.message,
+          icon: 'error'
+        });
+      }
+    },
   }
 };
 </script>

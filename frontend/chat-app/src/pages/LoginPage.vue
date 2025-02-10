@@ -65,7 +65,7 @@ export default {
       } else {
         this.$q.notify({
           color: 'warning',
-          message: 'Please enter username and password',
+          message: '请输入用户名和密码',
           icon: 'warning'
         });
       }

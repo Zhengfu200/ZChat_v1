@@ -4,13 +4,15 @@ const { WebSocketServer } = require('ws');
 const path = require('path');
 const jwt = require('jsonwebtoken');
 const bodyParser = require('body-parser');
-const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const fs = require('fs');
 const { accountInfo } = require('./js/accountinfo')
 const { editAccount } = require('./js/editAccount');
 const { addModerator, deleteModerator } = require('./js/addModerator');
 const { addBanAccount, allBanAccount, deleteBanAccount } = require('./js/banAccount');
+const { allBadges, addBadgesAccount, deleteBadgesAccount, deleteBadges } = require('./js/badges');
+const { deleteMessages, deleteChatrooms } = require('./js/deleteChatrooms');
+const { login , register} = require('./js/userManager');
 const multer = require('multer');
 
 //聊天室管理数据库
@@ -64,51 +66,10 @@ app.get('/api/chatrooms', (req, res) => {
 });
 
 //登录接口
-app.post('/login', (req, res) => {
-  const { username, password } = req.body;
-
-  user_db.get("SELECT * FROM users WHERE username = ?", [username], (err, row) => {
-    if (err || !row) {
-      return res.status(400).json({ error: 'Invalid username or password' });
-    }
-
-    bcrypt.compare(password, row.password, (err, result) => {
-      if (err || !result) {
-        return res.status(400).json({ error: 'Invalid username or password' });
-      }
-
-      const token = jwt.sign({ userId: row.id, username: row.username, user_avatar: row.avatar }, JWT_SECRET, { expiresIn: '1h' });
-
-      res.json({ message: 'Login successful', token })
-    })
-  })
-});
+app.post('/login', login);
 
 // 注册接口
-app.post('/register', (req, res) => {
-  const { username, password, avatar_url } = req.body;
-  user_db.get("SELECT * FROM users WHERE username = ?", [username], (err, row) => {
-    if (err) {
-      return res.status(500).json({ error: '数据库查询错误' });
-    }
-    if (row) {
-      return res.status(400).json({ error: '用户名已存在' });
-    }
-    bcrypt.hash(password, 10, (err, hashedPassword) => {
-      if (err) {
-        return res.status(500).json({ error: 'Failed to hash password' });
-      }
-      const stmt = user_db.prepare("INSERT INTO users (username, password, avatar) VALUES (?, ?, ?)");
-      stmt.run(username, hashedPassword, avatar_url, function (err) {
-        if (err) {
-          return res.status(500).json({ error: 'Failed to register user' });
-        }
-        console.log('用户名', username, '用户密码', hashedPassword, "用户头像", avatar_url);
-        res.status(201).json({ message: 'User registered successfully' });
-      });
-    });
-  });
-});
+app.post('/register', register);
 
 // 获取历史消息（1.历史消息）
 app.get('/api/messages', (req, res) => {
@@ -648,6 +609,24 @@ app.post('/api/banAccount', addBanAccount);
 //删去禁言用户
 app.post('/api/deleteBanAccount', deleteBanAccount);
 
+//获取所有身份组
+app.get('/api/allBadges', allBadges);
+
+//添加身份组
+app.post('/api/addBadgesAccount', addBadgesAccount);
+
+//删除身份组
+app.post('/api/deleteBadgesAccount', deleteBadgesAccount);
+
+//删除身份组2
+app.post('/api/deleteBadges', deleteBadges);
+
+//删除聊天记录
+app.post('/api/deleteMessages', deleteMessages);
+
+//删除聊天室
+app.post('/api/deleteChatrooms', deleteChatrooms);
+
 function getMimeType(filename) {
   const ext = path.extname(filename).toLowerCase();
   switch (ext) {
@@ -668,7 +647,6 @@ function getMimeType(filename) {
       return 'application/octet-stream';
   }
 }
-
 
 //生成随机文件名
 function generateRandomFileName(originalName) {

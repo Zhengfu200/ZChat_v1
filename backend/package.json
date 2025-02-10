@@ -13,6 +13,7 @@
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "express": "^4.21.2",
+    "graceful-fs": "^4.2.11",
     "jsonwebtoken": "^9.0.2",
     "multer": "^1.4.5-lts.1",
     "sqlite3": "^5.1.7",

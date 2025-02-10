@@ -3,10 +3,6 @@
         <q-page-container>
             <q-bar class="bg-primary">
                 <q-btn dense flat :icon="matArrowBack" color="white" @click="back" />
-                <q-btn dense flat icon="chat" style="color: white;" />
-                <div class="text-weight-bold" style="color: white;">
-                    ZChat
-                </div>
                 <div class="col text-center text-weight-bold" style="color: white;">
                     聊天室管理
                 </div>
@@ -17,13 +13,13 @@
                         <q-card-section>
                             <div class="text-h6 text-center q-mb-md" style="font-weight: 600;">基本信息</div>
 
-                            <q-input v-model="chatroom_modified" label="Modify Chatroom Name" :default-value="chatroom"
-                                filled dense class="q-mb-md" />
-
-                            <q-input v-model="owner_modified" label="Modify Owner" :default-value="owner" filled dense
+                            <q-input v-model="chatroom_modified" label="修改聊天室名称" :default-value="chatroom" filled dense
                                 class="q-mb-md" />
 
-                            <q-btn label="Save Changes" icon="save" color="primary" style="margin-right: 10px;"
+                            <q-input v-model="owner_modified" label="修改聊天室所有者" :default-value="owner" filled dense
+                                class="q-mb-md" />
+
+                            <q-btn label="保存更改" icon="save" color="primary" style="margin-right: 10px;"
                                 @click="saveChanges" />
                         </q-card-section>
                     </q-card>
@@ -34,18 +30,18 @@
                             <q-list>
                                 <q-item v-for="(moderator, index) in moderators" :key="index">
                                     <q-item-section>
-                                        <p style="font-weight: 500;"><q-badge rounded color="red"
+                                        <p style="font-weight: 500;"><q-badge rounded color="blue"
                                                 style="margin-right: 10px;" /> {{ moderator }}</p>
                                     </q-item-section>
-                                    <q-btn dense flat icon="delete" color="red" @click="deleteModerator (moderator)" />
+                                    <q-btn dense flat icon="delete" color="red" @click="deleteModerator(moderator)" />
                                 </q-item>
                             </q-list>
                             <q-separator inset />
                         </q-card-section>
 
                         <q-input v-model="moderator_add" label="新增管理员" filled dense class="q-mb-md" />
-                        <q-btn label="Add" :icon="matAddCircleOutline" color="primary"
-                            style="margin-right: 10px;" @click="addModerator" />
+                        <q-btn label="添加管理员" :icon="matAddCircleOutline" color="primary" style="margin-right: 10px;"
+                            @click="addModerator" />
                     </q-card>
 
 
@@ -58,20 +54,64 @@
                                         <p style="font-weight: 500;"><q-badge rounded color="red"
                                                 style="margin-right: 10px;" /> {{ account.name }}</p>
                                     </q-item-section>
-                                    <q-btn dense flat icon="delete" color="red" @click="deleteBanAccount (account.id)" />
+                                    <q-btn dense flat icon="delete" color="red" @click="deleteBanAccount(account.id)" />
                                 </q-item>
                             </q-list>
                             <q-separator inset />
                         </q-card-section>
 
                         <q-input v-model="banAccount_add" label="新增禁言用户" filled dense class="q-mb-md" />
-                        <q-btn label="Add" :icon="matAddCircleOutline" color="primary"
-                            style="margin-right: 10px;" @click="addBanAccount" />
+                        <q-btn label="添加禁言用户" :icon="matAddCircleOutline" color="primary" style="margin-right: 10px;"
+                            @click="addBanAccount" />
+                    </q-card>
+
+                    <q-card class="q-pa-md" style="max-width: 80vw; width: 100%; margin-top: 10px;">
+                        <q-card-section>
+                            <div class="text-h6 text-center q-mb-md" style="font-weight: 600;">频道身分组</div>
+                            <q-badge style="margin-left: 10px;" v-for="badges in allBadges" :key="badges.id"
+                                :label="badges" :color="getBadgeColor(badges)" />
+                            <q-separator inset />
+                        </q-card-section>
+
+                        <q-input v-model="addBadgesName" label="身份组名称" filled dense class="q-mb-md" />
+                        <q-input v-model="addBadgesAccount" label="新增用户" filled dense class="q-mb-md" />
+                        <q-btn label="添加用户" :icon="matAddCircleOutline" color="primary" style="margin-right: 10px;"
+                            @click="addBadges" />
+                        <q-btn label="移除用户" icon="delete" color="red" style="margin-right: 10px;"
+                            @click="deleteBadges" />
+
+                        <q-btn label="移除所有用户" icon="delete" color="red" style="margin-right: 10px;"
+                            @click="deleteWholeBadges" />
+                    </q-card>
+
+
+                    <q-card class="q-pa-md" style="max-width: 80vw; width: 100%; margin-top: 10px;">
+                        <q-card-section>
+                            <div class="text-h6 text-center q-mb-md" style="font-weight: 600;">删除频道</div>
+                            <q-separator inset />
+                        </q-card-section>
+                        <q-btn label="删除聊天数据" icon="delete" color="purple" style="margin-right: 10px;"
+                            @click="deleteMessages" />
+                        <q-btn label="删除聊天室" icon="delete" color="red" style="margin-right: 10px;"
+                            @click="changeDialogVisible" />
                     </q-card>
                 </div>
             </q-page>
         </q-page-container>
     </q-layout>
+
+    <q-dialog v-model="dialogVisible" backdrop-filter="blur(4px) saturate(150%)">
+        <q-card class="q-pa-md" style="min-width: 300px;">
+            <div class="row items-center q-mb-md">
+                <q-icon name="warning" color="red" size="32px" />
+                <span class="text-h6 q-ml-sm" style="font-weight: 600;">警告，此操作不可逆！</span>
+            </div>
+            <q-card-actions align="right">
+                <q-btn flat label="取消" color="primary" @click="changeDialogVisible" />
+                <q-btn label="确认" color="negative" @click="deleteChatroom" />
+            </q-card-actions>
+        </q-card>
+    </q-dialog>
 </template>
 
 <script>
@@ -90,6 +130,10 @@ export default {
             banAcounts: [],
             moderator_add: '',
             banAccount_add: '',
+            allBadges: [],
+            addBadgesName: '',
+            addBadgesAccount: '',
+            dialogVisible: false,
         };
     },
     mounted() {
@@ -100,6 +144,7 @@ export default {
         this.owner_modified = this.owner_previous;
         this.getModerator();
         this.getBanAccount();
+        this.getAllBadges();
     },
     methods: {
         async saveChanges() {
@@ -201,31 +246,31 @@ export default {
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify(payload)   
+                body: JSON.stringify(payload)
             })
-            .then(async (response) => {
-                if (!response.ok) {
-                    const errorData = await response.json();
-                    throw new Error(errorData.error);
-                }
-                const data = await response.json();
-                this.$q.notify({
-                    color: 'green',
-                    message: data.message,
-                    icon: 'check_circle'
+                .then(async (response) => {
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(errorData.error);
+                    }
+                    const data = await response.json();
+                    this.$q.notify({
+                        color: 'green',
+                        message: data.message,
+                        icon: 'check_circle'
+                    });
+                    this.getModerator();
+                })
+                .then(data => {
+                    console.log('success', data);
+                })
+                .catch(error => {
+                    this.$q.notify({
+                        color: 'red',
+                        message: error.message,
+                        icon: 'error'
+                    });
                 });
-                this.getModerator();
-            })
-            .then(data => {
-                console.log('success', data);
-            })
-           .catch(error => {
-                this.$q.notify({
-                    color: 'red',
-                    message: error.message,
-                    icon: 'error'
-                });
-            });
         },
         async deleteModerator(moderator_delete) {
             console.log(moderator_delete)
@@ -242,31 +287,31 @@ export default {
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify(payload)   
+                body: JSON.stringify(payload)
             })
-            .then(async (response) => {
-                if (!response.ok) {
-                    const errorData = await response.json();
-                    throw new Error(errorData.error);
-                }
-                const data = await response.json();
-                this.$q.notify({
-                    color: 'green',
-                    message: data.message,
-                    icon: 'check_circle'
+                .then(async (response) => {
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(errorData.error);
+                    }
+                    const data = await response.json();
+                    this.$q.notify({
+                        color: 'green',
+                        message: data.message,
+                        icon: 'check_circle'
+                    });
+                    this.getModerator();
+                })
+                .then(data => {
+                    console.log('success', data);
+                })
+                .catch(error => {
+                    this.$q.notify({
+                        color: 'red',
+                        message: error.message,
+                        icon: 'error'
+                    });
                 });
-                this.getModerator();
-            })
-            .then(data => {
-                console.log('success', data);
-            })
-           .catch(error => {
-                this.$q.notify({
-                    color: 'red',
-                    message: error.message,
-                    icon: 'error'
-                });
-            });
         },
         async getBanAccount() {
             try {
@@ -287,44 +332,44 @@ export default {
             }
         },
         addBanAccount() {
-           const token = localStorage.getItem('token');
+            const token = localStorage.getItem('token');
 
             const payload = {
                 chatroom_id: this.chatroom_id,
                 ban_account: this.banAccount_add,
                 token: token,
-            }; 
+            };
 
             fetch('http://localhost:3000/api/banAccount', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify(payload)   
+                body: JSON.stringify(payload)
             })
-            .then(async (response) => {
-                if (!response.ok) {
-                    const errorData = await response.json();
-                    throw new Error(errorData.error);
-                }
-                const data = await response.json();
-                this.$q.notify({
-                    color: 'green',
-                    message: data.message,
-                    icon: 'check_circle'
+                .then(async (response) => {
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(errorData.error);
+                    }
+                    const data = await response.json();
+                    this.$q.notify({
+                        color: 'green',
+                        message: data.message,
+                        icon: 'check_circle'
+                    });
+                    this.getBanAccount();
+                })
+                .then(data => {
+                    console.log('success', data);
+                })
+                .catch(error => {
+                    this.$q.notify({
+                        color: 'red',
+                        message: error.message,
+                        icon: 'error'
+                    });
                 });
-                this.getBanAccount();
-            })
-            .then(data => {
-                console.log('success', data);
-            })
-           .catch(error => {
-                this.$q.notify({
-                    color: 'red',
-                    message: error.message,
-                    icon: 'error'
-                });
-            });
         },
         deleteBanAccount(deleteBanAccountId) {
             const token = localStorage.getItem('token');
@@ -340,32 +385,267 @@ export default {
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify(payload)   
+                body: JSON.stringify(payload)
             })
-            .then(async (response) => {
+                .then(async (response) => {
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(errorData.error);
+                    }
+                    const data = await response.json();
+                    this.$q.notify({
+                        color: 'green',
+                        message: data.message,
+                        icon: 'check_circle'
+                    });
+                    this.getBanAccount();
+                })
+                .then(data => {
+                    console.log('success', data);
+                })
+                .catch(error => {
+                    this.$q.notify({
+                        color: 'red',
+                        message: error.message,
+                        icon: 'error'
+                    });
+                });
+        },
+        async getAllBadges() {
+            try {
+                const url = `http://localhost:3000/api/allBadges?chatroom_id=${this.chatroom_id}`;
+                const response = await fetch(url);
                 if (!response.ok) {
-                    const errorData = await response.json();
-                    throw new Error(errorData.error);
+                    throw new Error('请求失败，请重试');
                 }
                 const data = await response.json();
-                this.$q.notify({
-                    color: 'green',
-                    message: data.message,
-                    icon: 'check_circle'
-                });
-                this.getBanAccount();
-            })
-            .then(data => {
-                console.log('success', data);
-            })
-           .catch(error => {
+                this.allBadges = Array.isArray(data.fields) ? data.fields : [];
+                console.log(this.allBadges)
+            } catch (error) {
                 this.$q.notify({
                     color: 'red',
                     message: error.message,
                     icon: 'error'
                 });
-            });
+            }
         },
+        getBadgeColor(value) {
+            if (value == 'owner') {
+                return 'red';
+            } else if (value == 'moderator') {
+                return 'blue';
+            } else if (value == 'developer') {
+                return 'gray';
+            } else {
+                return 'green';
+            }
+        },
+        addBadges() {
+            const token = localStorage.getItem('token');
+
+            const payload = {
+                chatroom_id: this.chatroom_id,
+                addBadgesName: this.addBadgesName,
+                addBadgesAccount: this.addBadgesAccount,
+                token: token,
+            };
+
+            fetch('http://localhost:3000/api/addBadgesAccount', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(payload)
+            })
+                .then(async (response) => {
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(errorData.error);
+                    }
+                    const data = await response.json();
+                    this.$q.notify({
+                        color: 'green',
+                        message: data.message,
+                        icon: 'check_circle'
+                    });
+                    this.getAllBadges();
+                })
+                .then(data => {
+                    console.log('success', data);
+                })
+                .catch(error => {
+                    this.$q.notify({
+                        color: 'red',
+                        message: error.message,
+                        icon: 'error'
+                    });
+                });
+        },
+        deleteBadges() {
+            const token = localStorage.getItem('token');
+
+            const payload = {
+                chatroom_id: this.chatroom_id,
+                addBadgesName: this.addBadgesName,
+                addBadgesAccount: this.addBadgesAccount,
+                token: token,
+            };
+
+            fetch('http://localhost:3000/api/deleteBadgesAccount', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(payload)
+            })
+                .then(async (response) => {
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(errorData.error);
+                    }
+                    const data = await response.json();
+                    this.$q.notify({
+                        color: 'green',
+                        message: data.message,
+                        icon: 'check_circle'
+                    });
+                    this.getAllBadges();
+                })
+                .then(data => {
+                    console.log('success', data);
+                })
+                .catch(error => {
+                    this.$q.notify({
+                        color: 'red',
+                        message: error.message,
+                        icon: 'error'
+                    });
+                });
+        },
+        deleteWholeBadges() {
+            const token = localStorage.getItem('token');
+
+            const payload = {
+                chatroom_id: this.chatroom_id,
+                addBadgesName: this.addBadgesName,
+                token: token,
+            };
+
+            fetch('http://localhost:3000/api/deleteBadges', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(payload)
+            })
+                .then(async (response) => {
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(errorData.error);
+                    }
+                    const data = await response.json();
+                    this.$q.notify({
+                        color: 'green',
+                        message: data.message,
+                        icon: 'check_circle'
+                    });
+                    this.getAllBadges();
+                })
+                .then(data => {
+                    console.log('success', data);
+                })
+                .catch(error => {
+                    this.$q.notify({
+                        color: 'red',
+                        message: error.message,
+                        icon: 'error'
+                    });
+                });
+        },
+        deleteMessages() {
+            const token = localStorage.getItem('token');
+
+            const payload = {
+                chatroom_id: this.chatroom_id,
+                token: token,
+            };
+
+            fetch('http://localhost:3000/api/deleteMessages', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(payload)
+            })
+                .then(async (response) => {
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(errorData.error);
+                    }
+                    const data = await response.json();
+                    this.$q.notify({
+                        color: 'green',
+                        message: data.message,
+                        icon: 'check_circle'
+                    });
+                })
+                .then(data => {
+                    console.log('success', data);
+                })
+                .catch(error => {
+                    this.$q.notify({
+                        color: 'red',
+                        message: error.message,
+                        icon: 'error'
+                    });
+                });
+        },
+        deleteChatroom() {
+            const token = localStorage.getItem('token');
+
+            const payload = {
+                chatroom_id: this.chatroom_id,
+                token: token,
+            };
+
+            fetch('http://localhost:3000/api/deleteChatrooms', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(payload)
+            })
+                .then(async (response) => {
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(errorData.error);
+                    }
+                    const data = await response.json();
+                    this.$q.notify({
+                        color: 'green',
+                        message: data.message,
+                        icon: 'check_circle'
+                    });
+                    const current_chatroom_id = localStorage.getItem('current_chatroom_id');
+                    if (current_chatroom_id == this.chatroom_id) {
+                        localStorage.removeItem('current_chatroom_id');
+                    }
+                    this.$router.push('/');
+                })
+                .then(data => {
+                    console.log('success', data);
+                })
+                .catch(error => {
+                    this.$q.notify({
+                        color: 'red',
+                        message: error.message,
+                        icon: 'error'
+                    });
+                });
+        },
+        changeDialogVisible() {
+            this.dialogVisible = !this.dialogVisible;
+        }
     }
 };
 </script>

@@ -67,14 +67,14 @@ export default {
                             console.error('Registration failed:', err);
                             this.$q.notify({
                                 color: 'negative',
-                                message: err.response.data.error || 'Registration failed',
+                                message: err.response.data.error || '注册失败，请重试',
                                 icon: 'error'
                             });
                         });
                 } else {
                     this.$q.notify({
                         color: 'warning',
-                        message: 'Passwords do not match.',
+                        message: '密码输入不一致',
                         icon: 'warning'
                     });
                 }

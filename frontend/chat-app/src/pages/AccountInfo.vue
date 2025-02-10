@@ -101,6 +101,19 @@
                 </q-card-actions>
             </q-card>
         </q-dialog>
+
+        <q-dialog v-model="showEditSection_2">
+            <q-card>
+                <q-card-section>
+                    <q-date v-model="edit" mask="YYYY-MM-DD" color="blue" />
+                </q-card-section>
+
+                <q-card-actions align="right">
+                    <q-btn flat label="取消" color="negative" @click="changeEditSection_2" />
+                    <q-btn flat label="确认" color="primary" @click="uploadEdit" />
+                </q-card-actions>
+            </q-card>
+        </q-dialog>
     </div>
 </template>
 <script>
@@ -124,7 +137,7 @@ export default {
             markdownContent: "",
             editsection: '',
             edit: '',
-            showEditSection_1: false,
+            showEditSection_1: false,showEditSection_2: false,
             matArrowBack,
         }
     },
@@ -198,7 +211,7 @@ export default {
         },
         editBirthday() {
             this.editsection = "birthday";
-            this.showEditSection_1 = !this.showEditSection_1;
+            this.showEditSection_2 = !this.showEditSection_2;
         },
         editBio() {
             this.editsection = "Bio";
@@ -253,7 +266,6 @@ export default {
                     if (data.token) {
                         localStorage.setItem('token', data.token);
                     }
-                    this.showEditSection_1 = !this.showEditSection_1;
                 })
                 .catch(error => {
                     console.error('请求失败:', error);
@@ -267,7 +279,10 @@ export default {
         },
         back() {
             this.$router.go(-1);
-        }
+        },
+        changeEditSection_2() {
+            this.showEditSection_2 =!this.showEditSection_2;
+        },
     },
 
 }
