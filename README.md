@@ -10,8 +10,9 @@
 ##### 项目[演示地址](https://zhengfu200.github.io/#/)(最新版本)
 - 前端：![Static Badge](https://img.shields.io/badge/Vue-green)  ![Static Badge](https://img.shields.io/badge/Javascript-yellow)  ![Static Badge](https://img.shields.io/badge/Quasar-blue)
 - 后端：![Static Badge](https://img.shields.io/badge/Node.js-red)  ![Static Badge](https://img.shields.io/badge/Sqlite3-gray)    
-- [跳转到第一节](#tree)
-  
+- [项目文件结构](#tree)
+- [聊天室规则](#rules)
+- [Q&A](#Questions)
 ---
 
 ### ✅ Zchat_v1已实现功能:
@@ -44,6 +45,27 @@
 2.q-video的src如果被设置成任意文字，则会显示错误（将通过画中画形式将整个网页显示在视频组件里）
 3.token失效问题，重新登陆即可
 4.手机端切换至后台会中断websocket连接
+
+---
+<a id="rules"></a>
+
+### 聊天室规则
+1.群主拥有定义聊天室的所有权限，管理员仅开放禁言和删除聊天记录的权限    
+2.个人资料中的About Me仅支持github markdown文档的源文件直链（raw），例如（https://raw.githubusercontent.com/Zhengfu200/Zhengfu200/refs/heads/main/README.md）    
+3.聊天室身份组存在自动划分机制（例：qwe身份组的玩家会自动被加入qwew身份组）（~~不要问，问就是bug，懒得修~~）    
+
+---
+<a id="Questions"></a>    
+### Q&A
+
+**Q:** 出现token is invalid怎么办？    
+**A:** 请重新登录，此bug目前暂无解决办法，~~但影响甚微~~
+<br>    
+**Q:** 获取用户数据时出现404时怎么办？
+**A:** 由于之前演示版本的数据库被删除，所有用户数据和token失效，请重新注册账号并登录
+<br>
+**Q:** 聊天室获取错误？
+**A:** 排除网络问题，当不存在聊天室时，会触发报错，请立即建立第一个聊天室！
 
 ---
 
