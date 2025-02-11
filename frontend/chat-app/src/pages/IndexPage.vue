@@ -303,15 +303,15 @@ export default {
       };
       this.ws.onclose = () => {
         this.isConnected = false;
-        this.$q.notify({
-          type: 'negative',
-          position: 'top',
-          message: '服务器连接中断，请刷新再试',
-          timeout: 1000,
-        });
         console.log("WebSocket connection closed");
       };
       this.ws.onerror = (err) => {
+        this.$q.notify({
+            type: 'negative',
+            message: '服务器连接错误，请检查网络',
+            position: 'top',
+            timeout: 1000
+          });
         console.log("WebSocket error:", err);
       };
     },
@@ -371,12 +371,6 @@ export default {
         this.message = '';
         this.message_type = 1;
       } else if (!this.isConnected) {
-        this.$q.notify({
-          color: 'negative ',
-          message: '服务器连接中断，尝试重连……',
-          icon: 'report_problem',
-          position: 'top'
-        });
         this.connetWebsocket();
       } else if (!this.name) {
         this.$q.notify({
