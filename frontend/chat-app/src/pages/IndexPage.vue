@@ -78,6 +78,7 @@
           <q-btn flat class="full-width no-border" @click="gotoAccountInfo">👋 个人资料</q-btn>
           <q-btn flat class="full-width no-border" @click="gotoLogin">👉 登录</q-btn>
           <q-btn flat class="full-width no-border" @click="goToServerModerator">🖊️ 修改聊天室</q-btn>
+          <q-btn flat class="full-width no-border" @click="AboutProject">📄 项目文档</q-btn>
           <q-btn flat class="full-width no-border" @click="toggleDrawer">⬅️ 关闭</q-btn>
         </q-card-section>
       </q-card>
@@ -663,6 +664,9 @@ export default {
         });
       }
     },
+    AboutProject(){
+      window.open('https://github.com/Zhengfu200/ZChat_v1', '_blank');
+    }
   }
 };
 </script>
