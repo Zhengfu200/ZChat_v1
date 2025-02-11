@@ -1,15 +1,18 @@
 <div align=center><img src="https://img.icons8.com/?size=100&id=7859&format=png&color=000000"></div>
 
-## ZChat: Build a Public Chatroom with Node.js + Vue3 + Quasar + sqlite3    
-##### 声明——Zchat旨在于任何低配置服务器上搭建在线聊天网站，Zchat_v1中所有接口均为公开接口，请谨慎使用！
-##### 项目[演示地址](https://zhengfu200.github.io/#/)(仅为2025/2/3日更新的版本，非本仓库最新版本)
-- 前端：![Static Badge](https://img.shields.io/badge/Vue-green)  ![Static Badge](https://img.shields.io/badge/Javascript-yellow)  ![Static Badge](https://img.shields.io/badge/Quasar-blue)
-- 后端：![Static Badge](https://img.shields.io/badge/Node.js-red)  ![Static Badge](https://img.shields.io/badge/Sqlite3-gray)    
+# ZChat: Build a Public Chatroom with Node.js + Vue3 + Quasar + sqlite3    
+#### 截止2025/2/10 Zchat_V1计划中所有功能均已实现，将不再进行实质性更新（仅进行前段UI优化与bug修复）
 
 ---
 
-
-### 截止2025/2/10 Zchat_V1计划中所有功能均已实现，将不再进行实质性更新（仅进行前段UI优化与bug修复）
+### 关于项目：
+##### Zchat旨在于任何低配置服务器上搭建在线聊天网站，Zchat_v1中所有接口均为公开接口，请谨慎使用！
+##### 项目[演示地址](https://zhengfu200.github.io/#/)(最新版本)
+- 前端：![Static Badge](https://img.shields.io/badge/Vue-green)  ![Static Badge](https://img.shields.io/badge/Javascript-yellow)  ![Static Badge](https://img.shields.io/badge/Quasar-blue)
+- 后端：![Static Badge](https://img.shields.io/badge/Node.js-red)  ![Static Badge](https://img.shields.io/badge/Sqlite3-gray)    
+- [跳转到第一节](#tree)
+  
+---
 
 ### ✅ Zchat_v1已实现功能:
 
@@ -39,6 +42,86 @@
 ### 🪲已知bug:    
  ~~1.新发布的消息聊天头像不显示（已解决）~~     
 2.q-video的src如果被设置成任意文字，则会显示错误（将通过画中画形式将整个网页显示在视频组件里）
+3.token失效问题，重新登陆即可
+4.手机端切换至后台会中断websocket连接
+
+---
+
+<a id="tree"></a>
+
+### 项目文件结构
+
+```
+Zchat
+├─ backend
+│  ├─ js
+│  │  ├─ accountinfo.js
+│  │  ├─ addModerator.js
+│  │  ├─ badges.js
+│  │  ├─ banAccount.js
+│  │  ├─ deleteChatrooms.js
+│  │  ├─ editAccount.js
+│  │  └─ userManager.js
+│  ├─ package-lock.json
+│  ├─ package.json
+│  └─ server.js
+├─ frontend
+│  └─ chat-app
+│     ├─ .editorconfig
+│     ├─ .npmrc
+│     ├─ .prettierrc.json
+│     ├─ .quasar
+│     │  ├─ dev-spa
+│     │  │  ├─ app.js
+│     │  │  ├─ client-entry.js
+│     │  │  ├─ client-prefetch.js
+│     │  │  └─ quasar-user-options.js
+│     │  ├─ feature-flags.d.ts
+│     │  ├─ quasar.d.ts
+│     │  └─ tsconfig.json
+│     ├─ eslint.config.js
+│     ├─ index.html
+│     ├─ jsconfig.json
+│     ├─ package-lock.json
+│     ├─ package.json
+│     ├─ postcss.config.js
+│     ├─ public
+│     │  ├─ favicon.ico
+│     │  └─ icons
+│     │     ├─ favicon-128x128.png
+│     │     ├─ favicon-16x16.png
+│     │     ├─ favicon-32x32.png
+│     │     └─ favicon-96x96.png
+│     ├─ quasar.config.js
+│     ├─ quasar.extensions.json
+│     ├─ README.md
+│     └─ src
+│        ├─ App.vue
+│        ├─ assets
+│        │  └─ quasar-logo-vertical.svg
+│        ├─ boot
+│        │  └─ axios.js
+│        ├─ components
+│        │  └─ EssentialLink.vue
+│        ├─ css
+│        │  ├─ app.scss
+│        │  └─ quasar.variables.scss
+│        ├─ layouts
+│        │  └─ MainLayout.vue
+│        ├─ pages
+│        │  ├─ AccountInfo.vue
+│        │  ├─ ErrorNotFound.vue
+│        │  ├─ IndexPage.vue
+│        │  ├─ LoginPage.vue
+│        │  ├─ RegisterPage.vue
+│        │  └─ ServerModerator.vue
+│        └─ router
+│           ├─ index.js
+│           └─ routes.js
+├─ LICENSE
+└─ README.md
+
+```
 
 ---
 
