@@ -60,7 +60,7 @@ const editAccount = (req, res) => {
                                 return res.status(500).json({ success: false, message: 'fail to update token' });
                             }
 
-                            const token = jwt.sign({ userId: row.id, username: row.username, user_avatar: row.avatar }, JWT_SECRET, { expiresIn: '1h' });
+                            const token = jwt.sign({ userId: row.id, username: row.username, user_avatar: row.avatar }, JWT_SECRET);
 
                             return res.status(200).json({ success: true, message:'updated successfully', token: token });
 

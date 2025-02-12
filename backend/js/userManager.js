@@ -18,7 +18,7 @@ const login = (req, res) => {
                 return res.status(400).json({ error: '用户名或密码不正确' });
             }
 
-            const token = jwt.sign({ userId: row.id, username: row.username, user_avatar: row.avatar }, JWT_SECRET, { expiresIn: '1h' });
+            const token = jwt.sign({ userId: row.id, username: row.username, user_avatar: row.avatar }, JWT_SECRET);
 
             res.json({ message: '登陆成功', token })
         })
