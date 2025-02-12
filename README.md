@@ -13,6 +13,7 @@
 - [项目文件结构](#tree)
 - [聊天室规则](#rules)
 - [Q&A](#Questions)
+- [下载](https://github.com/Zhengfu200/ZChat_v1/releases/tag/release)
 - 项目文档（正在写🖊️）
 ---
 
