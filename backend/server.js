@@ -13,6 +13,7 @@ const { addBanAccount, allBanAccount, deleteBanAccount } = require('./js/banAcco
 const { allBadges, addBadgesAccount, deleteBadgesAccount, deleteBadges } = require('./js/badges');
 const { deleteMessages, deleteChatrooms } = require('./js/deleteChatrooms');
 const { login , register} = require('./js/userManager');
+const { ServerStatus } = require('./js/serverStatus');
 const multer = require('multer');
 
 //聊天室管理数据库
@@ -626,6 +627,9 @@ app.post('/api/deleteMessages', deleteMessages);
 
 //删除聊天室
 app.post('/api/deleteChatrooms', deleteChatrooms);
+
+//获取服务器运行状态
+app.get('/api/ServerStatus', ServerStatus);
 
 function getMimeType(filename) {
   const ext = path.extname(filename).toLowerCase();

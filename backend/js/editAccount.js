@@ -24,7 +24,7 @@ const editAccount = (req, res) => {
         const userId = decoded.userId;
         if (userId != Id) {
             console.log(userId, Id, 'You are not allowed to edit others profile');
-            return res.status(401).json({ success: false, message: 'You are not allowed to edit others profile' });
+            return res.status(401).json({ success: false, message: '你无权修改他人信息' });
         }else{
             user_db.get('SELECT * FROM users WHERE id = ?', [Id], (err, row) => {
                 if (err) {
@@ -32,7 +32,7 @@ const editAccount = (req, res) => {
                     return res.status(500).json({ success: false, message: 'Internal server error' }); 
                 }
                 if (!row) {
-                    return res.status(401).json({ success: false, message: 'User not found' });
+                    return res.status(401).json({ success: false, message: '用户未找到' });
                 }
                 if (!editsection) {
                     return res.status(401).json({ success: false, message: '未指定修改位置' });
